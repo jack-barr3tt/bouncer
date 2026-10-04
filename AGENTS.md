@@ -1,6 +1,6 @@
 # Bouncer
 
-Bouncer signs people in and serves a site of static apps. A site is one git repository: a directory of apps plus `apps.yaml`. One deployment mounts that one directory. Apps are folders under `apps/`. The server does not clone or combine other repositories. This repository is the server, the homepage, and the client those apps use. It is not a collection of apps.
+Bouncer signs people in and serves a site of static apps. A site is one directory: `apps.yaml` plus the files it serves. One deployment mounts that directory. An app is a folder under `apps/`, or a directory inside a git clone in the site, named by `source` in `apps.yaml`. This repository is the server, the homepage, and the client those apps use. It is not a collection of apps.
 
 How to set up and run a site is in [README.md](README.md). How to cut a release is in [RELEASING.md](RELEASING.md).
 
@@ -19,7 +19,7 @@ deploy/          Compose for running the published image with a site mounted
 .woodpecker/     Pull request checks, main checks, and release
 ```
 
-The OpenAPI file is `server/openapi.yaml`. Regenerate with `oapi-codegen` (`server/oapi-codegen.yaml`). Do not edit `server/internal/api/gen.go`.
+The OpenAPI file is `server/openapi.yaml`. Regenerate the server with `oapi-codegen` (`server/oapi-codegen.yaml`). Do not edit `server/internal/api/gen.go`. Regenerate the hub client with `npm run generate` in `hub/` (`hub/orval.config.ts`). Do not edit `hub/src/api/generated.ts`.
 
 ## Site
 
@@ -43,7 +43,7 @@ GitHub Actions, Woodpecker, and Forgejo read pipelines from the repository they 
 
 To do that by hand, copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Run Compose from the `deploy/` directory so the env file fills in the image and the site path.
 
-Bouncer fetches the site repository, builds the apps that changed, and publishes `apps.yaml` and those `dist` directories. Set `GIT_REMOTE`, a read-only key in `deploy/git-key`, `DEPLOY_WEBHOOK_SECRET`, and `BUILDER_TOKEN`. The forge webhook is the public origin plus `/api/hooks/git`. Pull-request pipelines still build the apps that changed. The deploy pipeline only notifies Bouncer. Woodpecker secrets for that call are `deploy_token` and `deploy_url`. GitHub and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Leave `GIT_REMOTE` empty to keep serving the files already in the site directory.
+Bouncer fetches the site repository when `GIT_REMOTE` is set and no app sets `source`. It builds the apps that changed and publishes `apps.yaml` and those `dist` directories. When an app sets `source`, that path is a directory inside `apps/`. It is either a git clone of one app (`apps/<name>`) or an app inside a clone of many (`apps/<name>/<app>`). A directory under `apps/` with no clone is left as it is. Bouncer reads a clone's `origin` and checked-out branch, fetches a clean copy, and publishes `dist` into that app directory. Apps that share a clone share one commit. The admin page can clone a repository into `apps/<folder>` and add the apps it finds. The forge webhook is the public origin plus `/api/hooks/git` for every clone. Set `GIT_REMOTE`, a read-only key in `deploy/git-key`, `DEPLOY_WEBHOOK_SECRET`, and `BUILDER_TOKEN`. The same key must be able to read every origin. Pull-request pipelines still build the apps that changed. The deploy pipeline only notifies Bouncer. Woodpecker secrets for that call are `deploy_token` and `deploy_url`. GitHub and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. When more than one clone is configured, the deploy request includes `remote`. Leave `GIT_REMOTE` empty, and leave `source` unset, to keep serving the files already in the site directory.
 
 ## Local run
 

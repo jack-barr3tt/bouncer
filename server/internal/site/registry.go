@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/jack-barr3tt/bouncer/schema"
@@ -84,8 +85,41 @@ func (s *Site) Apps() ([]App, error) {
 		if app.Path != want {
 			return nil, fmt.Errorf("apps[%d].path must be %q", i, want)
 		}
+		if app.Source == "" {
+			continue
+		}
+		clean, err := CleanSource(app.Source)
+		if err != nil {
+			return nil, fmt.Errorf("apps[%d].source: %w", i, err)
+		}
+		file.Apps[i].Source = clean
 	}
 	return file.Apps, nil
+}
+
+func CleanSource(source string) (string, error) {
+	source = strings.TrimSpace(source)
+	if source == "" || strings.Contains(source, "\\") || strings.HasPrefix(source, "/") {
+		return "", fmt.Errorf("%q must be a directory inside apps/", source)
+	}
+	clean := path.Clean(source)
+	if !strings.HasPrefix(clean, "apps/") {
+		return "", fmt.Errorf("%q must be a directory inside apps/", source)
+	}
+	rest := strings.TrimPrefix(clean, "apps/")
+	parts := strings.Split(rest, "/")
+	if len(parts) == 0 || parts[0] == "" {
+		return "", fmt.Errorf("%q must be a directory inside apps/", source)
+	}
+	if _, reserved := reservedSlugs[parts[0]]; reserved {
+		return "", fmt.Errorf("%q uses a reserved directory", source)
+	}
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return "", fmt.Errorf("%q must be a directory inside apps/", source)
+		}
+	}
+	return clean, nil
 }
 
 func (s *Site) HasApp(slug string) (bool, error) {

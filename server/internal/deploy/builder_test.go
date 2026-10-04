@@ -25,7 +25,7 @@ func TestBuilderCopiesDist(t *testing.T) {
 			return name + "\n", nil
 		},
 	}
-	logText, err := builder.Build(context.Background(), []string{"hello"})
+	logText, err := builder.Build(context.Background(), []BuildApp{{Slug: "hello", Dir: "src/apps/hello"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,8 +36,11 @@ func TestBuilderCopiesDist(t *testing.T) {
 	if err != nil || string(body) != "hi" {
 		t.Fatalf("dist: %q %v", body, err)
 	}
-	if _, err := builder.Build(context.Background(), []string{"../hello"}); err == nil {
+	if _, err := builder.Build(context.Background(), []BuildApp{{Slug: "../hello", Dir: "src/apps/hello"}}); err == nil {
 		t.Fatal("expected invalid slug")
+	}
+	if _, err := builder.Build(context.Background(), []BuildApp{{Slug: "hello", Dir: "../hello"}}); err == nil {
+		t.Fatal("expected invalid dir")
 	}
 }
 

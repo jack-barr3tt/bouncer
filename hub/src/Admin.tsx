@@ -1,91 +1,90 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { addDays, addHours, format, formatISO, parse, parseISO } from 'date-fns'
+import { useState, type SubmitEvent } from 'react'
 import {
-  createCode,
-  createUser,
-  getDeploy,
-  listCodes,
-  listTemporaryAccounts,
-  listUsers,
-  revokeCode,
-  revokeTemporaryAccount,
-  runDeploy,
-  setUserApps,
-  updateUser,
-  type AccessCode,
-  type Account,
-  type AppEntry,
-  type DeployState,
-  type TemporaryAccount,
-} from './api.ts'
+  getListTemporaryAccountsQueryOptions,
+  useCloneRepo,
+  useCreateAccessCode,
+  useCreateApp,
+  useCreateUser,
+  useGetDeploy,
+  useListAccessCodes,
+  useListUsers,
+  useRevokeAccessCode,
+  useRevokeTemporaryAccount,
+  useRunDeploy,
+  useSetUserApps,
+  useUpdateUser,
+  type UserRole,
+} from './api/generated.ts'
+import type { AppEntry } from './registry.ts'
 
-function hoursFromNow(hours: number): string {
-  const date = new Date(Date.now() + hours * 60 * 60 * 1000)
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000)
-  return local.toISOString().slice(0, 16)
-}
+const localInput = "yyyy-MM-dd'T'HH:mm"
+const shownTime = 'd MMM yyyy, HH:mm'
+
+const expiryPresets = [
+  { label: '1 hour', at: (now: Date) => addHours(now, 1) },
+  { label: '8 hours', at: (now: Date) => addHours(now, 8) },
+  { label: '1 day', at: (now: Date) => addDays(now, 1) },
+  { label: '7 days', at: (now: Date) => addDays(now, 7) },
+]
 
 export default function Admin({ apps }: { apps: AppEntry[] }) {
-  const [users, setUsers] = useState<Account[]>([])
-  const [codes, setCodes] = useState<AccessCode[]>([])
-  const [accounts, setAccounts] = useState<Record<string, TemporaryAccount[]>>({})
+  const queryClient = useQueryClient()
+  const usersQuery = useListUsers()
+  const codesQuery = useListAccessCodes()
+  const deployQuery = useGetDeploy({
+    query: {
+      refetchInterval: (query) =>
+        query.state.data?.repos.some((repo) => repo.latest?.status === 'running') ? 2000 : false,
+    },
+  })
+  const users = usersQuery.data?.users ?? []
+  const codes = codesQuery.data?.codes ?? []
+  const deploy = deployQuery.data
+  const accountQueries = useQueries({
+    queries: codes.map((code) => getListTemporaryAccountsQueryOptions(code.id)),
+  })
+  const accounts = Object.fromEntries(
+    codes.map((code, index) => [code.id, accountQueries[index]?.data?.accounts ?? []]),
+  )
   const [error, setError] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [label, setLabel] = useState('')
   const [maxSignups, setMaxSignups] = useState(1)
-  const [expires, setExpires] = useState(hoursFromNow(8))
+  const [expires, setExpires] = useState(() => format(addHours(new Date(), 8), localInput))
   const [codeApps, setCodeApps] = useState<string[]>([])
-  const [deploy, setDeploy] = useState<DeployState | null>(null)
+  const [cloneRemote, setCloneRemote] = useState('')
+  const [cloneName, setCloneName] = useState('')
+  const [cloneBranch, setCloneBranch] = useState('main')
+  const [detected, setDetected] = useState<{ source: string; slug: string; name: string; description: string; icon: string }[]>([])
+  const createUser = useCreateUser()
+  const updateUser = useUpdateUser()
+  const setUserApps = useSetUserApps()
+  const createCode = useCreateAccessCode()
+  const revokeCode = useRevokeAccessCode()
+  const revokeAccount = useRevokeTemporaryAccount()
+  const runDeploy = useRunDeploy()
+  const cloneRepo = useCloneRepo()
+  const createApp = useCreateApp()
+  const loadError = usersQuery.error ?? codesQuery.error ?? deployQuery.error ?? accountQueries.find((query) => query.error)?.error
+  const shownError = error || (loadError instanceof Error ? loadError.message : '')
 
   async function refresh() {
-    const [userList, codeList, deployState] = await Promise.all([listUsers(), listCodes(), getDeploy()])
-    setUsers(userList.users)
-    setCodes(codeList.codes)
-    setDeploy(deployState)
-    const grouped = await Promise.all(
-      codeList.codes.map(async (code) => [code.id, (await listTemporaryAccounts(code.id)).accounts] as const),
-    )
-    setAccounts(Object.fromEntries(grouped))
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    refresh().catch((caught: unknown) => {
-      if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not load admin.')
+    await queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0]
+        return (
+          key === 'apps.yaml' ||
+          (typeof key === 'string' &&
+            (key.startsWith('/api/users') || key.startsWith('/api/access-codes') || key === '/api/deploy'))
+        )
+      },
     })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    if (deploy?.latest?.status !== 'running') return
-    const timer = window.setInterval(() => {
-      getDeploy()
-        .then(setDeploy)
-        .catch(() => undefined)
-    }, 2000)
-    return () => window.clearInterval(timer)
-  }, [deploy?.latest?.status])
-
-  async function onDeploy() {
-    const before = deploy?.latest?.startedAt ?? ''
-    setError('')
-    try {
-      await runDeploy()
-      const deadline = Date.now() + 20000
-      while (Date.now() < deadline) {
-        const next = await getDeploy()
-        setDeploy(next)
-        if (next.latest && next.latest.startedAt !== before && next.latest.status !== 'running') return
-        await new Promise((resolve) => setTimeout(resolve, 400))
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Request failed.')
-    }
   }
 
-  async function run(action: () => Promise<void>) {
+  async function run(action: () => Promise<unknown>) {
     setError('')
     try {
       await action()
@@ -95,27 +94,72 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
     }
   }
 
-  async function onCreateUser(event: FormEvent) {
+  async function onCreateUser(event: SubmitEvent) {
     event.preventDefault()
     await run(async () => {
-      await createUser(username, password)
+      await createUser.mutateAsync({ data: { username, password } })
       setUsername('')
       setPassword('')
     })
   }
 
-  async function onCreateCode(event: FormEvent) {
+  async function onCreateCode(event: SubmitEvent) {
     event.preventDefault()
     await run(async () => {
-      await createCode({
-        label,
-        appSlugs: codeApps,
-        expiresAt: new Date(expires).toISOString(),
-        maxSignups,
+      await createCode.mutateAsync({
+        data: {
+          label,
+          appSlugs: codeApps,
+          expiresAt: formatISO(parse(expires, localInput, new Date())),
+          maxSignups,
+        },
       })
       setLabel('')
       setCodeApps([])
     })
+  }
+
+  async function onClone(event: SubmitEvent) {
+    event.preventDefault()
+    setError('')
+    try {
+      const result = await cloneRepo.mutateAsync({ data: { remote: cloneRemote, name: cloneName, branch: cloneBranch } })
+      setDetected(
+        result.apps.map((app) => {
+          const slug = app.source.split('/').filter(Boolean).pop() ?? ''
+          const name = slug.replace(/(^|-)([a-z])/g, (_, gap: string, letter: string) => `${gap ? ' ' : ''}${letter.toUpperCase()}`)
+          return { source: app.source, slug, name, description: '', icon: name.slice(0, 1) || 'A' }
+        }),
+      )
+      setCloneRemote('')
+      setCloneName('')
+      setCloneBranch('main')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Request failed.')
+    }
+  }
+
+  async function onAddApp(index: number) {
+    const app = detected[index]
+    if (!app) return
+    setError('')
+    try {
+      await createApp.mutateAsync({ data: app })
+      setDetected((current) => current.filter((_, item) => item !== index))
+      await refresh()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Request failed.')
+    }
+  }
+
+  async function onDeploy(remote: string) {
+    await run(async () => {
+      await runDeploy.mutateAsync({ data: { remote } })
+    })
+  }
+
+  function updateDetected(index: number, field: 'slug' | 'name' | 'description' | 'icon', value: string) {
+    setDetected((current) => current.map((app, item) => (item === index ? { ...app, [field]: value } : app)))
   }
 
   function toggle(slug: string) {
@@ -129,49 +173,148 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
           All apps
         </a>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight">Admin</h1>
-        {error ? (
+        {shownError ? (
           <p className="mt-4 text-sm text-red-700" role="alert">
-            {error}
+            {shownError}
           </p>
         ) : null}
 
         <section className="mt-10">
           <h2 className="text-xl font-semibold">Deploy</h2>
-          {deploy == null ? null : deploy.enabled ? (
-            <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-4">
-              <p className="text-sm">
-                {deploy.remote} · {deploy.branch}
-              </p>
-              <p className="mt-2 font-mono text-sm">{deploy.webhookUrl}</p>
-              <div className="mt-3 flex gap-3 text-sm">
-                <button className="underline" type="button" onClick={() => void navigator.clipboard.writeText(deploy.webhookUrl)}>
-                  Copy webhook URL
-                </button>
-                <button
-                  className="underline disabled:text-stone-400"
-                  type="button"
-                  disabled={deploy.latest?.status === 'running'}
-                  onClick={() => void onDeploy()}
+          <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => void onClone(event)}>
+            <label className="text-sm">
+              Git remote
+              <input
+                className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
+                value={cloneRemote}
+                onChange={(event) => setCloneRemote(event.target.value)}
+                placeholder="git@github.com:you/notes.git"
+                required
+              />
+            </label>
+            <label className="text-sm">
+              Folder
+              <input
+                className="mt-1 block w-32 rounded-xl border border-stone-300 px-3 py-2"
+                value={cloneName}
+                onChange={(event) => setCloneName(event.target.value)}
+                placeholder="notes"
+                required
+              />
+            </label>
+            <label className="text-sm">
+              Branch
+              <input
+                className="mt-1 block w-28 rounded-xl border border-stone-300 px-3 py-2"
+                value={cloneBranch}
+                onChange={(event) => setCloneBranch(event.target.value)}
+                required
+              />
+            </label>
+            <button className="rounded-full bg-stone-900 px-4 py-2 text-sm text-white" type="submit">
+              Clone into apps/
+            </button>
+          </form>
+          {detected.length > 0 ? (
+            <div className="mt-4 grid gap-4">
+              {detected.map((app, index) => (
+                <form
+                  className="rounded-2xl border border-stone-200 bg-white p-4"
+                  key={app.source}
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void onAddApp(index)
+                  }}
                 >
-                  Deploy now
-                </button>
+                  <p className="font-mono text-sm">{app.source}</p>
+                  <div className="mt-3 flex flex-wrap items-end gap-3">
+                    <label className="text-sm">
+                      Slug
+                      <input
+                        className="mt-1 block w-28 rounded-xl border border-stone-300 px-3 py-2"
+                        value={app.slug}
+                        onChange={(event) => updateDetected(index, 'slug', event.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="text-sm">
+                      Name
+                      <input
+                        className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
+                        value={app.name}
+                        onChange={(event) => updateDetected(index, 'name', event.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="text-sm">
+                      Description
+                      <input
+                        className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
+                        value={app.description}
+                        onChange={(event) => updateDetected(index, 'description', event.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="text-sm">
+                      Icon
+                      <input
+                        className="mt-1 block w-20 rounded-xl border border-stone-300 px-3 py-2"
+                        value={app.icon}
+                        onChange={(event) => updateDetected(index, 'icon', event.target.value)}
+                        required
+                      />
+                    </label>
+                    <button className="rounded-full bg-stone-900 px-4 py-2 text-sm text-white" type="submit">
+                      Add app
+                    </button>
+                  </div>
+                </form>
+              ))}
+            </div>
+          ) : null}
+          {deploy == null ? null : deploy.enabled ? (
+            <div className="mt-4">
+              <p className="font-mono text-sm">{deploy.webhookUrl}</p>
+              <button className="mt-3 text-sm underline" type="button" onClick={() => void navigator.clipboard.writeText(deploy.webhookUrl)}>
+                Copy webhook URL
+              </button>
+              <div className="mt-4 grid gap-4">
+                {deploy.repos.map((repo) => (
+                  <div className="rounded-2xl border border-stone-200 bg-white p-4" key={`${repo.path}:${repo.remote}`}>
+                    <p className="text-sm">
+                      {repo.path ? `${repo.path} · ` : ''}
+                      {repo.remote}
+                      {repo.branch ? ` · ${repo.branch}` : ''}
+                    </p>
+                    <div className="mt-3 text-sm">
+                      <button
+                        className="underline disabled:text-stone-400"
+                        type="button"
+                        disabled={repo.latest?.status === 'running'}
+                        onClick={() => void onDeploy(repo.remote)}
+                      >
+                        Deploy now
+                      </button>
+                    </div>
+                    {repo.latest ? (
+                      <div className="mt-4">
+                        <p className="text-sm">
+                          {repo.latest.status} · {repo.latest.sha.slice(0, 7)}
+                          {repo.latest.finishedAt ? ` · ${format(parseISO(repo.latest.finishedAt), shownTime)}` : ''}
+                        </p>
+                        {repo.latest.log ? (
+                          <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-stone-600">{repo.latest.log}</pre>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-4 text-sm text-stone-600">No deploys yet.</p>
+                    )}
+                  </div>
+                ))}
               </div>
-              {deploy.latest ? (
-                <div className="mt-4">
-                  <p className="text-sm">
-                    {deploy.latest.status} · {deploy.latest.sha.slice(0, 7)}
-                    {deploy.latest.finishedAt ? ` · ${new Date(deploy.latest.finishedAt).toLocaleString()}` : ''}
-                  </p>
-                  {deploy.latest.log ? (
-                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-stone-600">{deploy.latest.log}</pre>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-stone-600">No deploys yet.</p>
-              )}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-stone-600">Git deploy is off until GIT_REMOTE is set.</p>
+            <p className="mt-4 text-sm text-stone-600">Git deploy is off until a clone under apps/ is registered, or GIT_REMOTE is set.</p>
           )}
         </section>
 
@@ -212,7 +355,7 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
                       className="rounded-lg border border-stone-300 px-2 py-1"
                       value={user.role}
                       onChange={(event) =>
-                        void run(() => updateUser(user.id, { role: event.target.value as 'admin' | 'user' }).then(() => undefined))
+                        void run(() => updateUser.mutateAsync({ id: user.id, data: { role: event.target.value as UserRole } }))
                       }
                     >
                       <option value="user">user</option>
@@ -224,7 +367,7 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
                   <input
                     type="checkbox"
                     checked={user.disabled}
-                    onChange={(event) => void run(() => updateUser(user.id, { disabled: event.target.checked }).then(() => undefined))}
+                    onChange={(event) => void run(() => updateUser.mutateAsync({ id: user.id, data: { disabled: event.target.checked } }))}
                   />
                   Disabled
                 </label>
@@ -243,7 +386,7 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
                               const slugs = event.target.checked
                                 ? [...user.apps, app.slug]
                                 : user.apps.filter((slug) => slug !== app.slug)
-                              void run(() => setUserApps(user.id, slugs).then(() => undefined))
+                              void run(() => setUserApps.mutateAsync({ id: user.id, data: { slugs } }))
                             }}
                           />
                           {app.name}
@@ -260,7 +403,7 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
                     const input = form.elements.namedItem('password')
                     const next = input instanceof HTMLInputElement ? input.value : ''
                     void run(async () => {
-                      await updateUser(user.id, { password: next })
+                      await updateUser.mutateAsync({ id: user.id, data: { password: next } })
                       form.reset()
                     })
                   }}
@@ -293,19 +436,14 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
               />
             </label>
             <div className="mt-3 flex flex-wrap gap-2">
-              {[
-                [1, '1 hour'],
-                [8, '8 hours'],
-                [24, '1 day'],
-                [24 * 7, '7 days'],
-              ].map(([hours, name]) => (
+              {expiryPresets.map((preset) => (
                 <button
-                  key={name}
+                  key={preset.label}
                   className="rounded-full border border-stone-300 px-3 py-1 text-sm"
                   type="button"
-                  onClick={() => setExpires(hoursFromNow(Number(hours)))}
+                  onClick={() => setExpires(format(preset.at(new Date()), localInput))}
                 >
-                  {name}
+                  {preset.label}
                 </button>
               ))}
             </div>
@@ -353,7 +491,7 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
                 <p className="mt-1 font-mono text-sm">{code.url}</p>
                 <p className="mt-1 text-sm text-stone-600">
                   {code.signupCount} / {code.maxSignups} signups
-                  {code.revokedAt ? ' · revoked' : ''} · expires {new Date(code.expiresAt).toLocaleString()}
+                  {code.revokedAt ? ' · revoked' : ''} · expires {format(parseISO(code.expiresAt), shownTime)}
                 </p>
                 <img className="mt-3 size-40" src={`/api/access-codes/${code.id}/qr`} alt="" />
                 <div className="mt-3 flex gap-3 text-sm">
@@ -365,7 +503,7 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
                     Copy link
                   </button>
                   {!code.revokedAt ? (
-                    <button className="underline" type="button" onClick={() => void run(() => revokeCode(code.id).then(() => undefined))}>
+                    <button className="underline" type="button" onClick={() => void run(() => revokeCode.mutateAsync({ id: code.id }))}>
                       Revoke code
                     </button>
                   ) : null}
@@ -382,7 +520,7 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
                         <button
                           className="underline"
                           type="button"
-                          onClick={() => void run(() => revokeTemporaryAccount(account.id))}
+                          onClick={() => void run(() => revokeAccount.mutateAsync({ id: account.id }))}
                         >
                           Revoke
                         </button>

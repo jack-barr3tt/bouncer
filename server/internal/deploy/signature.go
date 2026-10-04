@@ -74,48 +74,115 @@ func sign(secret string, body []byte) string {
 	return "sha256=" + hex.EncodeToString(sum.Sum(nil))
 }
 
-func (s *Service) DecideHook(event, signature string, body []byte) (int, string) {
+func (s *Service) DecideHook(event, signature string, body []byte) (int, string, string) {
 	if !s.WebhookEnabled() {
-		return http.StatusNotFound, ""
+		return http.StatusNotFound, "", ""
 	}
 	if !verifySignature(s.cfg.WebhookSecret, body, signature) {
-		return http.StatusUnauthorized, ""
+		return http.StatusUnauthorized, "", ""
 	}
 	if event == "ping" || event != "push" {
-		return http.StatusNoContent, ""
+		return http.StatusNoContent, "", ""
 	}
 	var payload struct {
-		Ref   string `json:"ref"`
-		After string `json:"after"`
+		Ref        string `json:"ref"`
+		After      string `json:"after"`
+		Repository struct {
+			CloneURL string `json:"clone_url"`
+			SSHURL   string `json:"ssh_url"`
+			GitURL   string `json:"git_url"`
+			HTMLURL  string `json:"html_url"`
+		} `json:"repository"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return http.StatusBadRequest, ""
+		return http.StatusBadRequest, "", ""
 	}
 	payload.After = strings.ToLower(payload.After)
-	if payload.Ref != "refs/heads/"+s.cfg.Branch {
-		return http.StatusNoContent, ""
-	}
 	if !validSHA(payload.After) || zeroSHA(payload.After) {
-		return http.StatusNoContent, ""
+		return http.StatusNoContent, "", ""
 	}
-	return http.StatusAccepted, payload.After
+	remote, branch, ok := s.hookTarget(payload.Ref, []string{
+		payload.Repository.CloneURL,
+		payload.Repository.SSHURL,
+		payload.Repository.GitURL,
+		payload.Repository.HTMLURL,
+	})
+	if !ok || payload.Ref != "refs/heads/"+branch {
+		return http.StatusNoContent, "", ""
+	}
+	return http.StatusAccepted, remote, payload.After
 }
 
-func ParseDeploySHA(body []byte) (string, error) {
+func (s *Service) hookTarget(ref string, urls []string) (string, string, bool) {
+	present := false
+	for _, item := range urls {
+		if strings.TrimSpace(item) != "" {
+			present = true
+			break
+		}
+	}
+	if s.sourceMode() {
+		repos, err := s.discover()
+		if err != nil {
+			return "", "", false
+		}
+		for _, repo := range repos {
+			if repo.Remote == "" || repo.Branch == "" || ref != "refs/heads/"+repo.Branch {
+				continue
+			}
+			if !present {
+				if len(repos) == 1 {
+					return repo.Remote, repo.Branch, true
+				}
+				continue
+			}
+			for _, item := range urls {
+				if sameRemote(repo.Remote, item) {
+					return repo.Remote, repo.Branch, true
+				}
+			}
+		}
+		return "", "", false
+	}
+	if present {
+		matched := false
+		for _, item := range urls {
+			if sameRemote(s.cfg.Remote, item) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return "", "", false
+		}
+	}
+	if ref != "refs/heads/"+s.cfg.Branch {
+		return "", "", false
+	}
+	return "", s.cfg.Branch, true
+}
+
+func ParseDeploy(body []byte) (string, string, error) {
 	if len(strings.TrimSpace(string(body))) == 0 {
-		return "", nil
+		return "", "", nil
 	}
 	var req struct {
-		SHA string `json:"sha"`
+		SHA    string `json:"sha"`
+		Remote string `json:"remote"`
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
-		return "", err
+		return "", "", err
 	}
 	req.SHA = strings.ToLower(req.SHA)
 	if req.SHA != "" && !validSHA(req.SHA) {
-		return "", errInvalidSHA
+		return "", "", errInvalidSHA
 	}
-	return req.SHA, nil
+	return strings.TrimSpace(req.Remote), req.SHA, nil
+}
+
+func ParseDeploySHA(body []byte) (string, error) {
+	_, sha, err := ParseDeploy(body)
+	return sha, err
 }
 
 var errInvalidSHA = errors.New("invalid sha")

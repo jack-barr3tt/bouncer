@@ -2,7 +2,7 @@
 
 Have you ever wanted to quickly deploy and share a web app, using your own infrastructure, but didn't want to deal with all that hassle? Bouncer might be just what you're looking for!
 
-Bouncer is a simple way to deploy and share web apps. It runs on your own server and domain, and builds apps with Vite. One deployment is one site: a single git repository, with each app as a directory under `apps/`. Bouncer fetches that repository and publishes the apps that changed. 
+Bouncer is a simple way to deploy and share web apps. It runs on your own server and domain, and builds apps with Vite. One deployment is one site directory, with `apps.yaml` as the catalog. Apps can live under `apps/`, or in git clones you put in that directory and point at from `apps.yaml`. Bouncer fetches those clones and publishes the apps that changed. 
 
 Create persistent user accounts, or provide scoped temporary access via a URL, join code or QR code. Stop building auth into all your pet projects - let bouncer do it for you! You can even hook directly into Bouncer's identity system via the `@jack-barr3tt/bouncer-client` library if you want.
 
@@ -90,6 +90,43 @@ curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
 ```
 
 `DEPLOY_URL` is the public origin, with no path. Woodpecker secrets are `deploy_token` and `deploy_url`. GitHub Actions and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Set `DEPLOY_POLL_INTERVAL` (for example `1m`) when nothing can call in. Leave `GIT_REMOTE` empty to keep serving the files already in the site directory.
+
+## Apps from more than one repository
+
+Clone each project into the site directory, then point `apps.yaml` at the Vite app inside it. One clone can hold many apps. One app can be the whole clone. `source` is the site-relative directory that contains `package.json`:
+
+```yaml
+apps:
+  - slug: notes
+    name: Notes
+    description: A notebook.
+    path: /apps/notes/
+    icon: N
+    source: apps/notes
+  - slug: chess
+    name: Chess
+    description: A board.
+    path: /apps/chess/
+    icon: C
+    source: apps/games/chess
+```
+
+`apps/notes` is a clone of one app. `apps/games` is a clone that contains more than one app. A directory under `apps/` with no git clone stays as it is. Bouncer reads `origin` and the checked-out branch from each clone. A detached HEAD fails that clone's deploy. The deploy key must be able to read every origin.
+
+The admin page can clone a repository into `apps/<folder>` and register the apps it finds, so a new project does not need a shell on the server.
+
+Push webhooks for every forge use the same URL, `https://apps.example.com/api/hooks/git`, and the same `DEPLOY_WEBHOOK_SECRET`. Bouncer matches the repository in the payload to a clone. It publishes `dist` under `apps/<slug>/` and leaves `apps.yaml` as you wrote it. The admin page lists each clone and can publish that branch tip.
+
+When more than one clone is configured, the deploy request includes the remote:
+
+```bash
+curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
+  -H "Authorization: Bearer $DEPLOY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"sha\":\"$SHA\",\"remote\":\"git@github.com:you/notes.git\"}"
+```
+
+SSH and HTTPS forms of the same repository match. A site that sets `GIT_REMOTE` and does not set `source` still publishes that one repository, including its `apps.yaml`.
 
 The admin page shows the latest deploy and can publish the branch tip. The webhook URL is on that page too. Paste `DEPLOY_WEBHOOK_SECRET` from `deploy/.env` into the forge.
 

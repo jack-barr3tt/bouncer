@@ -313,6 +313,12 @@ paths:
   /api/deploy/run:
     post:
       operationId: runDeploy
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployRequest"
       responses:
         "202":
           description: Deploy of the branch tip started.
@@ -321,6 +327,48 @@ paths:
         "403":
           $ref: "#/components/responses/Error"
         "404":
+          $ref: "#/components/responses/Error"
+  /api/deploy/clones:
+    post:
+      operationId: cloneRepo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloneRequest"
+      responses:
+        "201":
+          description: Repository cloned into apps/.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloneResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/apps:
+    post:
+      operationId: createApp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppRequest"
+      responses:
+        "204":
+          description: App added to apps.yaml.
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
           $ref: "#/components/responses/Error"
   /api/access/stream:
     get:
@@ -540,6 +588,66 @@ components:
       properties:
         sha:
           type: string
+        remote:
+          type: string
+    CloneRequest:
+      type: object
+      required: [remote, name]
+      properties:
+        remote:
+          type: string
+        name:
+          type: string
+        branch:
+          type: string
+    CloneApp:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+    CloneResult:
+      type: object
+      required: [path, remote, branch, apps]
+      properties:
+        path:
+          type: string
+        remote:
+          type: string
+        branch:
+          type: string
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/CloneApp"
+    CreateAppRequest:
+      type: object
+      required: [slug, name, description, icon, source]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        source:
+          type: string
+    DeployRepo:
+      type: object
+      required: [path, remote, branch]
+      properties:
+        path:
+          type: string
+        remote:
+          type: string
+        branch:
+          type: string
+        latest:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DeployRun"
     DeployRun:
       type: object
       required: [sha, status, startedAt, log]
@@ -560,7 +668,7 @@ components:
           type: string
     DeployStatus:
       type: object
-      required: [enabled, remote, branch, webhookUrl]
+      required: [enabled, remote, branch, webhookUrl, repos]
       properties:
         enabled:
           type: boolean
@@ -574,3 +682,7 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/DeployRun"
+        repos:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeployRepo"

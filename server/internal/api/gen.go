@@ -129,6 +129,26 @@ type AppListRequest struct {
 	Slugs []string `json:"slugs"`
 }
 
+// CloneApp defines model for CloneApp.
+type CloneApp struct {
+	Source string `json:"source"`
+}
+
+// CloneRequest defines model for CloneRequest.
+type CloneRequest struct {
+	Branch *string `json:"branch,omitempty"`
+	Name   string  `json:"name"`
+	Remote string  `json:"remote"`
+}
+
+// CloneResult defines model for CloneResult.
+type CloneResult struct {
+	Apps   []CloneApp `json:"apps"`
+	Branch string     `json:"branch"`
+	Path   string     `json:"path"`
+	Remote string     `json:"remote"`
+}
+
 // CreateAccessCodeRequest defines model for CreateAccessCodeRequest.
 type CreateAccessCodeRequest struct {
 	AppSlugs   []string  `json:"appSlugs"`
@@ -137,15 +157,33 @@ type CreateAccessCodeRequest struct {
 	MaxSignups int       `json:"maxSignups"`
 }
 
+// CreateAppRequest defines model for CreateAppRequest.
+type CreateAppRequest struct {
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Source      string `json:"source"`
+}
+
 // CreateUserRequest defines model for CreateUserRequest.
 type CreateUserRequest struct {
 	Password string `json:"password"`
 	Username string `json:"username"`
 }
 
+// DeployRepo defines model for DeployRepo.
+type DeployRepo struct {
+	Branch string     `json:"branch"`
+	Latest *DeployRun `json:"latest,omitempty"`
+	Path   string     `json:"path"`
+	Remote string     `json:"remote"`
+}
+
 // DeployRequest defines model for DeployRequest.
 type DeployRequest struct {
-	Sha *string `json:"sha,omitempty"`
+	Remote *string `json:"remote,omitempty"`
+	Sha    *string `json:"sha,omitempty"`
 }
 
 // DeployRun defines model for DeployRun.
@@ -162,11 +200,12 @@ type DeployRunStatus string
 
 // DeployStatus defines model for DeployStatus.
 type DeployStatus struct {
-	Branch     string     `json:"branch"`
-	Enabled    bool       `json:"enabled"`
-	Latest     *DeployRun `json:"latest,omitempty"`
-	Remote     string     `json:"remote"`
-	WebhookUrl string     `json:"webhookUrl"`
+	Branch     string       `json:"branch"`
+	Enabled    bool         `json:"enabled"`
+	Latest     *DeployRun   `json:"latest,omitempty"`
+	Remote     string       `json:"remote"`
+	Repos      []DeployRepo `json:"repos"`
+	WebhookUrl string       `json:"webhookUrl"`
 }
 
 // Error defines model for Error.
@@ -258,8 +297,17 @@ type CreateAccessCodeJSONRequestBody = CreateAccessCodeRequest
 // RedeemAccessCodeJSONRequestBody defines body for RedeemAccessCode for application/json ContentType.
 type RedeemAccessCodeJSONRequestBody = RedeemRequest
 
+// CreateAppJSONRequestBody defines body for CreateApp for application/json ContentType.
+type CreateAppJSONRequestBody = CreateAppRequest
+
 // TriggerDeployJSONRequestBody defines body for TriggerDeploy for application/json ContentType.
 type TriggerDeployJSONRequestBody = DeployRequest
+
+// CloneRepoJSONRequestBody defines body for CloneRepo for application/json ContentType.
+type CloneRepoJSONRequestBody = CloneRequest
+
+// RunDeployJSONRequestBody defines body for RunDeploy for application/json ContentType.
+type RunDeployJSONRequestBody = DeployRequest
 
 // GitHookJSONRequestBody defines body for GitHook for application/json ContentType.
 type GitHookJSONRequestBody = GitHookJSONBody
@@ -300,11 +348,17 @@ type ServerInterface interface {
 	// (GET /api/access/stream)
 	AccessStream(c fiber.Ctx) error
 
+	// (POST /api/apps)
+	CreateApp(c fiber.Ctx) error
+
 	// (GET /api/deploy)
 	GetDeploy(c fiber.Ctx) error
 
 	// (POST /api/deploy)
 	TriggerDeploy(c fiber.Ctx) error
+
+	// (POST /api/deploy/clones)
+	CloneRepo(c fiber.Ctx) error
 
 	// (POST /api/deploy/run)
 	RunDeploy(c fiber.Ctx) error
@@ -505,6 +559,24 @@ func (siw *ServerInterfaceWrapper) AccessStream(c fiber.Ctx) error {
 	return handler(c)
 }
 
+// CreateApp operation middleware
+func (siw *ServerInterfaceWrapper) CreateApp(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.CreateApp(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // GetDeploy operation middleware
 func (siw *ServerInterfaceWrapper) GetDeploy(c fiber.Ctx) error {
 
@@ -528,6 +600,24 @@ func (siw *ServerInterfaceWrapper) TriggerDeploy(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.TriggerDeploy(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// CloneRepo operation middleware
+func (siw *ServerInterfaceWrapper) CloneRepo(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.CloneRepo(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -812,6 +902,10 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/api/deploy", wrapper.TriggerDeploy)
 
 	router.Post(options.BaseURL+"/api/deploy/run", wrapper.RunDeploy)
+
+	router.Post(options.BaseURL+"/api/deploy/clones", wrapper.CloneRepo)
+
+	router.Post(options.BaseURL+"/api/apps", wrapper.CreateApp)
 
 	router.Get(options.BaseURL+"/api/access/stream", wrapper.AccessStream)
 

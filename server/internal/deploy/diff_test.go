@@ -23,6 +23,14 @@ func TestSlugsFromDiff(t *testing.T) {
 	}
 }
 
+func TestAppsFromDiff(t *testing.T) {
+	diff := "apps/chess/src/App.tsx\nREADME.md\n"
+	got := AppsFromDiff(diff, []sourcedApp{{Slug: "chess", Rel: "apps/chess"}, {Slug: "notes", Rel: "apps/notes"}, {Slug: "root", Rel: "."}})
+	if len(got) != 2 || got[0] != "chess" || got[1] != "root" {
+		t.Fatalf("slugs: %v", got)
+	}
+}
+
 func TestListAppSlugs(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "hello", "package.json"), "{}")

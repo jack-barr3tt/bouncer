@@ -12,6 +12,7 @@ type App struct {
 	Description string `mapstructure:"description" json:"description"`
 	Path        string `mapstructure:"path" json:"path"`
 	Icon        string `mapstructure:"icon" json:"icon"`
+	Source      string `mapstructure:"source" json:"source,omitempty"`
 }
 
 type Site struct {
@@ -71,6 +72,14 @@ func (s *Site) HubDir() string {
 
 func (s *Site) AppDir(slug string) string {
 	base := filepath.Join(s.root, "apps", slug)
+	if apps, err := s.Apps(); err == nil {
+		for _, app := range apps {
+			if app.Slug == slug && app.Source != "" {
+				base = filepath.Join(s.root, filepath.FromSlash(app.Source))
+				break
+			}
+		}
+	}
 	dist := filepath.Join(base, "dist")
 	if s.repo || exists(dist) {
 		return dist

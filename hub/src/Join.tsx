@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { redeem } from './api.ts'
+import { useState, type SubmitEvent } from 'react'
+import { useRedeemAccessCode } from './api/generated.ts'
 import { visitorId } from './fingerprint.ts'
 
 export default function Join() {
@@ -7,14 +7,15 @@ export default function Join() {
   const [nickname, setNickname] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  const redeem = useRedeemAccessCode()
 
-  async function onSubmit(event: FormEvent) {
+  async function onSubmit(event: SubmitEvent) {
     event.preventDefault()
     setError('')
     setPending(true)
     try {
       const fingerprint = await visitorId()
-      await redeem(code, nickname, fingerprint)
+      await redeem.mutateAsync({ data: { code, nickname, fingerprint } })
       window.location.assign('/')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not join.')
