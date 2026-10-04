@@ -21,6 +21,8 @@ deploy/          Compose for running the published image with a site mounted
 
 The OpenAPI file is `server/openapi.yaml`. Regenerate the server with `oapi-codegen` (`server/oapi-codegen.yaml`). Do not edit `server/internal/api/gen.go`. Regenerate the hub client with `npm run generate` in `hub/` (`hub/orval.config.ts`). Do not edit `hub/src/api/generated.ts`.
 
+Schema changes go through numbered files in `server/db/migrations/`. After changing them, run `make schema` to refresh `server/db/schema.sql`. That file is the applied-schema dump. Do not edit it by hand, and do not apply it as a migration.
+
 ## Site
 
 `SITE_ROOT` is the consumer directory. `HUB_DIR` is the built homepage. When `HUB_DIR` is unset and `SITE_ROOT/apps/hub` exists, the server uses that build. Otherwise the homepage files are `SITE_ROOT` itself.
