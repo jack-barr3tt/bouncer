@@ -11,10 +11,14 @@ import (
 	"github.com/jack-barr3tt/bouncer/db"
 	"github.com/jack-barr3tt/bouncer/internal/api"
 	"github.com/jack-barr3tt/bouncer/internal/deploy"
+	"github.com/jack-barr3tt/bouncer/internal/envfile"
 	"github.com/jack-barr3tt/bouncer/internal/store"
 )
 
 func main() {
+	if err := envfile.Load(); err != nil {
+		log.Fatal(err)
+	}
 	if len(os.Args) > 1 && os.Args[1] == "builder" {
 		if err := deploy.ListenAndServeBuilder(); err != nil {
 			log.Fatal(err)

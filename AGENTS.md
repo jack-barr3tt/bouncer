@@ -49,8 +49,10 @@ Bouncer fetches the site repository when `GIT_REMOTE` is set and no app sets `so
 
 ## Local run
 
+Copy `.env.example` to `.env`. The server and the migrate command read that file from the working directory. A variable that is already set is left as it is. A missing file is left alone, which is how Compose and CI pass the same settings in.
+
 ```bash
-SITE_ROOT=../apps AUTH_BOOTSTRAP_USERNAME=admin AUTH_BOOTSTRAP_PASSWORD=change-me docker compose up
+docker compose up
 ```
 
 `SITE_ROOT` defaults to `../apps`. Postgres is published on port 5436.
