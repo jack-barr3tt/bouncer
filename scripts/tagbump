@@ -76,6 +76,6 @@ if [ "$changed" -eq 1 ]; then
   git commit -m "Release ${next}"
 fi
 
-git tag -a "$next" -m "$next"
+git tag "$next"
 echo "$next"
 echo "push with: git push origin main ${next}"
