@@ -1,6 +1,6 @@
 {
   "name": "@jack-barr3tt/create-bouncer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Write Bouncer site files: CI pipelines, build scripts, and the compose file that runs the image.",
   "bin": {
@@ -11,7 +11,10 @@
     "test": "tsc && node --test write.test.mjs",
     "prepublishOnly": "npm run build && node vendor.mjs"
   },
-  "files": ["dist", "vendor"],
+  "files": [
+    "dist",
+    "vendor"
+  ],
   "publishConfig": {
     "access": "public"
   },
