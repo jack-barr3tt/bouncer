@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Apps auth
   version: 0.1.0
-  description: Shared sign-in for the personal app site.
+  description: Shared sign-in for a directory of static apps.
 paths:
   /api/login:
     post:
