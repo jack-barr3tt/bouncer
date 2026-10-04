@@ -65,6 +65,8 @@ export interface Session {
   role?: SessionRole;
   apps: string[];
   expiresAt: string;
+  /** Public URL of the homepage. */
+  hub: string;
 }
 
 export type UserRole = typeof UserRole[keyof typeof UserRole];

@@ -35,8 +35,11 @@ Add each app as a directory under `apps/` in that same repository. Bouncer serve
 - `description` — one sentence, 200 characters or fewer.
 - `path` — exactly `/apps/<slug>/`.
 - `icon` — a short label or emoji, 32 characters or fewer.
+- `upstream` — origin to proxy, such as `http://127.0.0.1:3000`. The process must already be listening. Omit it to serve files. It cannot be combined with `source`.
 
 A Vite app should set `base` to `'./'` and build with `npm run build`. Reserved slugs are `hub`, `assets`, and `code`.
+
+Set `ROUTING=subdomain` to serve an app at `https://<slug>.<host>/` instead of `/apps/<slug>/`, using the host of `PUBLIC_BASE_URL`. The homepage stays on that host. `/apps/<slug>/` redirects there. A wildcard DNS record and a wildcard certificate must cover one label under that host: `*.example.com` does not cover `hello.apps.example.com`. Localhost and IP addresses stay on path routing. A proxied app does not own `/api`; Bouncer serves that on the app host.
 
 A new account can open nothing until an admin turns apps on. Admins can open every app in `apps.yaml`. Delete `apps/hello` and its `apps.yaml` entry when you no longer want the sample.
 
@@ -61,7 +64,7 @@ const who = await currentIdentity()
 watchAccess('your-slug')
 ```
 
-`currentIdentity()` returns the signed-in username or nickname, or `null` when nobody is signed in. `watchAccess(slug)` sends the browser home when access to that app is removed, and to the login page when the session ends. Both are optional.
+`currentIdentity()` returns the signed-in username or nickname, or `null` when nobody is signed in. `watchAccess(slug)` sends the browser to the homepage when access to that app is removed, and to the login page when the session ends. Both are optional.
 
 While you develop, proxy `/api` to Bouncer on port 8080. The Vite dev server is not behind the gate.
 

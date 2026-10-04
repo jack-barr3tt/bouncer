@@ -27,7 +27,7 @@ func (s *Server) AccessStream(c fiber.Ctx) error {
 	c.Set("X-Accel-Buffering", "no")
 	return c.SendStreamWriter(func(w *bufio.Writer) {
 		defer cancel()
-		if err := writeEvent(w, "access", map[string]any{"apps": apps}); err != nil {
+		if err := writeEvent(w, "access", map[string]any{"apps": apps, "hub": s.publicBase}); err != nil {
 			return
 		}
 		heartbeat := time.NewTicker(20 * time.Second)
@@ -37,7 +37,7 @@ func (s *Server) AccessStream(c fiber.Ctx) error {
 		for {
 			select {
 			case ev := <-events:
-				payload := map[string]any{}
+				payload := map[string]any{"hub": s.publicBase}
 				if ev.Name == "access" {
 					if ev.Apps == nil {
 						ev.Apps = []string{}
@@ -58,7 +58,7 @@ func (s *Server) AccessStream(c fiber.Ctx) error {
 					return
 				}
 			case <-deadline.C:
-				_ = writeEvent(w, "session_ended", map[string]any{})
+				_ = writeEvent(w, "session_ended", map[string]any{"hub": s.publicBase})
 				return
 			}
 		}

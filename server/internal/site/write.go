@@ -16,6 +16,7 @@ type appDoc struct {
 	Path        string `yaml:"path"`
 	Icon        string `yaml:"icon"`
 	Source      string `yaml:"source,omitempty"`
+	Upstream    string `yaml:"upstream,omitempty"`
 }
 
 func (s *Site) AddApp(app App) error {
@@ -50,6 +51,7 @@ func (s *Site) AddApp(app App) error {
 			Path:        existing.Path,
 			Icon:        existing.Icon,
 			Source:      existing.Source,
+			Upstream:    existing.Upstream,
 		})
 	}
 	var buf bytes.Buffer

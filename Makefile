@@ -1,13 +1,88 @@
-.PHONY: schema
+.DEFAULT_GOAL := help
 
+.PHONY: help postgres init server hub builder migrate dev stop-tmux down stop \
+	schema generate generate-api generate-hub \
+	check test-server test-client test-create test-scripts test-hub lint-hub test-hello
+
+ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 COMPOSE ?= docker compose
+TMUX_SESSION ?= bouncer
 SCHEMA_COMPOSE_PROJECT := bouncer-schema
 SCHEMA_PG_PORT ?= 5437
 SCHEMA_DATABASE_URL ?= postgres://bouncer:bouncer@localhost:$(SCHEMA_PG_PORT)/bouncer?sslmode=disable
 SCHEMA_OUT := server/db/schema.sql
+OAPI_CODEGEN := github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
+
+help:
+	@printf '%s\n' \
+		'dev          Start Postgres and a tmux session for the server and hub' \
+		'stop         Stop that tmux session and Compose' \
+		'postgres     Start Postgres on port 5436' \
+		'init         Write Hello into a site that has no apps.yaml' \
+		'server       Run this checkout (reads .env from the repository root)' \
+		'hub          Homepage dev server, proxying to port 8080' \
+		'builder      Git-deploy builder on port 8081' \
+		'migrate      Apply migrations using .env' \
+		'down         Stop the Compose services' \
+		'schema       Refresh server/db/schema.sql' \
+		'generate     Regenerate the server API and the hub client' \
+		'check        Run every check' \
+		'test-server  Go tests. Set TEST_DATABASE_URL to a database the tests can wipe' \
+		'test-client  Client tests and build' \
+		'test-create  create-bouncer tests' \
+		'test-scripts Script tests' \
+		'test-hub     Homepage lint and build' \
+		'lint-hub     Homepage lint' \
+		'test-hello   Hello sample lint and build'
+
+postgres:
+	cd $(ROOT) && $(COMPOSE) up -d --wait postgres
+
+init:
+	cd $(ROOT) && set -a && [ -f .env ] && . ./.env; set +a; \
+		SITE_ROOT="$${SITE_ROOT:-../apps}" SCAFFOLD="$(ROOT)/scaffold" "$(ROOT)/scripts/docker-entrypoint.sh" init; \
+		site="$(ROOT)/$$SITE_ROOT"; \
+		case "$$SITE_ROOT" in /*) site="$$SITE_ROOT";; esac; \
+		if [ -f "$$site/apps/hello/package.json" ] && [ ! -f "$$site/apps/hello/dist/index.html" ]; then \
+			npm ci --prefix "$$site/apps/hello" && npm run build --prefix "$$site/apps/hello"; \
+		fi
+
+dev: postgres init
+	@test -f $(ROOT)/.env || { echo "copy .env.example to .env"; exit 1; }
+	@command -v tmux >/dev/null 2>&1 || { echo "tmux is required. Install it (e.g. brew install tmux)."; exit 1; }
+	@if tmux has-session -t $(TMUX_SESSION) 2>/dev/null; then \
+		echo "tmux session $(TMUX_SESSION) already exists"; \
+	else \
+		tmux new-session -d -s $(TMUX_SESSION) -n server -c "$(ROOT)"; \
+		tmux send-keys -t $(TMUX_SESSION):server 'set -a && [ -f .env ] && . ./.env; set +a; cd server && go run ./cmd/bouncer' C-m; \
+		tmux new-window -t $(TMUX_SESSION) -n hub -c "$(ROOT)"; \
+		tmux send-keys -t $(TMUX_SESSION):hub 'set -a && [ -f .env ] && . ./.env; set +a; cd hub && npm install && npm run dev' C-m; \
+	fi
+	@if [ -z "$$TMUX" ]; then tmux attach -t $(TMUX_SESSION); fi
+
+stop-tmux:
+	-tmux kill-session -t $(TMUX_SESSION)
+
+stop: stop-tmux down
+
+server: init
+	cd $(ROOT)/server && go run ./cmd/bouncer
+
+hub: init
+	cd $(ROOT) && set -a && [ -f .env ] && . ./.env; set +a; cd hub && npm install && npm run dev
+
+builder:
+	cd $(ROOT)/server && go run ./cmd/bouncer builder
+
+migrate:
+	cd $(ROOT)/server && go run ./cmd/migrate
+
+down:
+	cd $(ROOT) && $(COMPOSE) down
 
 schema:
-	SCHEMA_PG_PORT=$(SCHEMA_PG_PORT) $(COMPOSE) -p $(SCHEMA_COMPOSE_PROJECT) -f compose.schema.yaml up -d --wait postgres
+	cd $(ROOT); \
+	SCHEMA_PG_PORT=$(SCHEMA_PG_PORT) $(COMPOSE) -p $(SCHEMA_COMPOSE_PROJECT) -f compose.schema.yaml up -d --wait postgres; \
 	status=0; \
 	DATABASE_URL="$(SCHEMA_DATABASE_URL)" $(MAKE) migrate || status=$$?; \
 	if [ $$status -eq 0 ]; then \
@@ -22,5 +97,33 @@ schema:
 	SCHEMA_PG_PORT=$(SCHEMA_PG_PORT) $(COMPOSE) -p $(SCHEMA_COMPOSE_PROJECT) -f compose.schema.yaml down -v; \
 	exit $$status
 
-migrate:
-	cd server && go run ./cmd/migrate
+generate: generate-api generate-hub
+
+generate-api:
+	cd $(ROOT)/server && go run $(OAPI_CODEGEN) -config oapi-codegen.yaml openapi.yaml
+
+generate-hub:
+	cd $(ROOT)/hub && npm install && npm run generate
+
+check: test-server test-client test-create test-scripts test-hub test-hello
+
+test-server:
+	cd $(ROOT)/server && go test ./...
+
+test-client:
+	cd $(ROOT)/client && npm ci && npm test && npm run build
+
+test-create:
+	cd $(ROOT)/create && npm ci && npm test
+
+test-scripts:
+	cd $(ROOT) && node --test scripts/*.test.mjs templates/site/scripts/*.test.mjs
+
+test-hub:
+	cd $(ROOT)/hub && npm ci && npm run lint && npm run build
+
+lint-hub:
+	cd $(ROOT)/hub && npm ci && npm run lint
+
+test-hello:
+	cd $(ROOT)/scaffold/apps/hello && npm ci && npm run lint && npm run build

@@ -13,6 +13,7 @@ type App struct {
 	Path        string `mapstructure:"path" json:"path"`
 	Icon        string `mapstructure:"icon" json:"icon"`
 	Source      string `mapstructure:"source" json:"source,omitempty"`
+	Upstream    string `mapstructure:"upstream" json:"upstream,omitempty"`
 }
 
 type Site struct {

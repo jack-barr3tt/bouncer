@@ -1,3 +1,5 @@
+import { accessDestination } from './leave.js'
+
 export type Identity = { kind: 'user'; username: string } | { kind: 'temporary'; nickname: string }
 
 type SessionBody = {
@@ -21,17 +23,24 @@ export async function currentIdentity(): Promise<Identity | null> {
 
 type AccessBody = {
   apps?: unknown
+  hub?: unknown
+}
+
+function readEvent(event: Event): AccessBody | null {
+  if (!(event instanceof MessageEvent) || typeof event.data !== 'string') return null
+  return JSON.parse(event.data) as AccessBody
 }
 
 export function watchAccess(slug: string): void {
   const stream = new EventSource('/api/access/stream')
   stream.addEventListener('access', (event) => {
-    if (!(event instanceof MessageEvent) || typeof event.data !== 'string') return
-    const data = JSON.parse(event.data) as AccessBody
-    const apps = Array.isArray(data.apps) ? data.apps : []
-    if (!apps.includes(slug)) window.location.assign('/')
+    const data = readEvent(event)
+    if (!data) return
+    const dest = accessDestination('access', data, slug)
+    if (dest) window.location.assign(dest)
   })
-  stream.addEventListener('session_ended', () => {
-    window.location.assign('/login')
+  stream.addEventListener('session_ended', (event) => {
+    const data = readEvent(event) ?? {}
+    window.location.assign(accessDestination('session_ended', data, slug) ?? '/login')
   })
 }

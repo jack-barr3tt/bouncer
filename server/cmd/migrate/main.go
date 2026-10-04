@@ -6,9 +6,13 @@ import (
 	"os"
 
 	"github.com/jack-barr3tt/bouncer/db"
+	"github.com/jack-barr3tt/bouncer/internal/envfile"
 )
 
 func main() {
+	if err := envfile.Load(); err != nil {
+		log.Fatal(err)
+	}
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
 		log.Fatal("DATABASE_URL is required")

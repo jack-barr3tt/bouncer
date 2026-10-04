@@ -20,6 +20,9 @@ Add an entry to `apps.yaml`:
 - `path` — exactly `/apps/<slug>/`.
 - `icon` — a short label or emoji, 32 characters or fewer.
 - `source` — directory of the Vite app inside `apps/`, when it is not `apps/<slug>`. A clone of one app is `apps/<name>`. An app inside a clone of many is `apps/<name>/<app>`. Omit `source` for a directory at `apps/<slug>` that is not a separate clone.
+- `upstream` — origin to proxy, such as `http://127.0.0.1:3000`, when the app is not files Bouncer serves. The process must already be listening. Omit `source` when you set this. Bouncer still serves `/api` on that app, so the app's own API uses another path.
+
+`ROUTING=subdomain` on the server publishes the app at `<slug>.<public host>` instead of `/apps/<slug>/`. Path routing stays in use for localhost.
 
 Reserved slugs: `hub`, `assets`, `code`. Do not use them. Join links stay at `/code/<code>`.
 

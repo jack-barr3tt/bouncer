@@ -9,6 +9,7 @@ const hubDir = path.dirname(fileURLToPath(import.meta.url))
 
 function registryPath(): string {
   if (process.env.APPS_REGISTRY) return path.resolve(process.env.APPS_REGISTRY)
+  if (process.env.SITE_ROOT) return path.resolve(hubDir, '..', process.env.SITE_ROOT, 'apps.yaml')
   const site = path.resolve(hubDir, '../apps.yaml')
   try {
     readFileSync(site)
@@ -58,6 +59,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://127.0.0.1:8080',
+      '/apps': 'http://127.0.0.1:8080',
     },
   },
 })

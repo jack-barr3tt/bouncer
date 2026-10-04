@@ -5,6 +5,7 @@
   "description": "Identity and access hooks for an app served by Bouncer.",
   "scripts": {
     "build": "tsc",
+    "test": "node --experimental-strip-types --test leave.test.ts",
     "prepublishOnly": "npm run build"
   },
   "exports": {
@@ -25,6 +26,7 @@
     "directory": "client"
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
     "typescript": "~6.0.2"
   }
 }
