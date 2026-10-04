@@ -259,6 +259,69 @@ paths:
           $ref: "#/components/responses/Error"
         "404":
           $ref: "#/components/responses/Error"
+  /api/hooks/git:
+    post:
+      operationId: gitHook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "202":
+          description: Deploy started.
+        "204":
+          description: Event ignored.
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/deploy:
+    get:
+      operationId: getDeploy
+      responses:
+        "200":
+          description: Whether git deploy is configured, and the latest run.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeployStatus"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: triggerDeploy
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployRequest"
+      responses:
+        "202":
+          description: Deploy started.
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/deploy/run:
+    post:
+      operationId: runDeploy
+      responses:
+        "202":
+          description: Deploy of the branch tip started.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
   /api/access/stream:
     get:
       operationId: accessStream
@@ -472,3 +535,42 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TemporaryAccount"
+    DeployRequest:
+      type: object
+      properties:
+        sha:
+          type: string
+    DeployRun:
+      type: object
+      required: [sha, status, startedAt, log]
+      properties:
+        sha:
+          type: string
+        status:
+          type: string
+          enum: [running, published, failed]
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        log:
+          type: string
+    DeployStatus:
+      type: object
+      required: [enabled, remote, branch, webhookUrl]
+      properties:
+        enabled:
+          type: boolean
+        remote:
+          type: string
+        branch:
+          type: string
+        webhookUrl:
+          type: string
+        latest:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DeployRun"

@@ -52,6 +52,14 @@ steps:
           .
       - docker push "$REGISTRY/bouncer:$VERSION"
       - docker push "$REGISTRY/bouncer:latest"
+      - |
+        docker build \
+          --target builder \
+          -t "$REGISTRY/bouncer-builder:$VERSION" \
+          -t "$REGISTRY/bouncer-builder:latest" \
+          .
+      - docker push "$REGISTRY/bouncer-builder:$VERSION"
+      - docker push "$REGISTRY/bouncer-builder:latest"
 
   - name: stage-packages
     image: node:22-alpine

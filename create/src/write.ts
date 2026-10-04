@@ -28,7 +28,7 @@ const ciFiles: Record<CiSystem, [string, string][]> = {
   ],
 }
 
-const gitignoreLines = ['node_modules/', 'dist/', 'deploy/.env']
+const gitignoreLines = ['node_modules/', 'dist/', 'deploy/.env', 'deploy/git-key']
 
 export function writeSite(options: SetupOptions): { wrote: string[]; skipped: string[] } {
   const wrote: string[] = []
@@ -49,6 +49,7 @@ export function writeSite(options: SetupOptions): { wrote: string[]; skipped: st
 
   copyNew(options, join('deploy', 'docker-compose.yml'), join('deploy', 'docker-compose.yml'), wrote, skipped)
   writeEnv(options, wrote, skipped)
+  writeKey(options, wrote, skipped)
   writeGitignore(options.dir, wrote, skipped)
   return { wrote, skipped }
 }
@@ -89,10 +90,29 @@ function writeEnv(options: SetupOptions, wrote: string[], skipped: string[]): vo
     'AUTH_BOOTSTRAP_PASSWORD=',
     'TRUSTED_PROXIES=127.0.0.1',
     `COOKIE_SECURE=${secure ? 'true' : 'false'}`,
+    'GIT_REMOTE=',
+    'GIT_BRANCH=main',
+    'GIT_SSH_KEY_FILE=./git-key',
+    'DEPLOY_WEBHOOK_SECRET=',
+    'DEPLOY_TOKEN=',
+    'DEPLOY_POLL_INTERVAL=',
+    'BUILDER_TOKEN=',
     '',
   ].join('\n')
   mkdirSync(dirname(dest), { recursive: true })
   writeFileSync(dest, body)
+  wrote.push(to)
+}
+
+function writeKey(options: SetupOptions, wrote: string[], skipped: string[]): void {
+  const to = join('deploy', 'git-key')
+  const dest = join(options.dir, to)
+  if (existsSync(dest)) {
+    skipped.push(to)
+    return
+  }
+  mkdirSync(dirname(dest), { recursive: true })
+  writeFileSync(dest, '')
   wrote.push(to)
 }
 

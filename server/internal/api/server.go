@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/jack-barr3tt/bouncer/internal/access"
+	"github.com/jack-barr3tt/bouncer/internal/deploy"
 	"github.com/jack-barr3tt/bouncer/internal/site"
 	"github.com/jack-barr3tt/bouncer/internal/store"
-	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -25,6 +26,7 @@ type Config struct {
 	BcryptCost     int
 	TrustedProxies []string
 	CookieSecure   string
+	Deploy         *deploy.Service
 }
 
 type Server struct {
@@ -33,6 +35,7 @@ type Server struct {
 	broker       *access.Broker
 	publicBase   string
 	cookieSecure string
+	deploy       *deploy.Service
 }
 
 func NewApp(cfg Config) (*fiber.App, error) {
@@ -63,6 +66,7 @@ func NewApp(cfg Config) (*fiber.App, error) {
 		broker:       access.New(),
 		publicBase:   strings.TrimRight(cfg.PublicBaseURL, "/"),
 		cookieSecure: strings.ToLower(strings.TrimSpace(cfg.CookieSecure)),
+		deploy:       cfg.Deploy,
 	}
 	app.Use(srv.gate)
 	RegisterHandlers(app, srv)

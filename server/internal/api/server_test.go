@@ -233,6 +233,32 @@ func TestLoginLockout(t *testing.T) {
 	}
 }
 
+func TestDeployUnconfigured(t *testing.T) {
+	app := newApp(t)
+	hook := postJSON(t, app, "/api/hooks/git", map[string]string{"ref": "refs/heads/main"}, "")
+	if hook.StatusCode != http.StatusNotFound {
+		t.Fatalf("hook: %d %s", hook.StatusCode, readBody(hook))
+	}
+	trigger := postJSON(t, app, "/api/deploy", map[string]string{}, "")
+	if trigger.StatusCode != http.StatusNotFound {
+		t.Fatalf("trigger: %d %s", trigger.StatusCode, readBody(trigger))
+	}
+	guest := get(t, app, "/api/deploy", "", false)
+	if guest.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("guest deploy: %d", guest.StatusCode)
+	}
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+	status := get(t, app, "/api/deploy", admin, false)
+	body := readBody(status)
+	if status.StatusCode != http.StatusOK || !strings.Contains(body, `"enabled":false`) {
+		t.Fatalf("status: %d %s", status.StatusCode, body)
+	}
+	run := postJSON(t, app, "/api/deploy/run", map[string]string{}, admin)
+	if run.StatusCode != http.StatusNotFound {
+		t.Fatalf("run: %d %s", run.StatusCode, readBody(run))
+	}
+}
+
 func TestLastAdmin(t *testing.T) {
 	app := newApp(t)
 	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
@@ -258,7 +284,7 @@ func newApp(t *testing.T) *fiber.App {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, `TRUNCATE auth_attempts, sessions, temporary_accounts, access_code_apps, access_codes, user_apps, users`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE deploys, auth_attempts, sessions, temporary_accounts, access_code_apps, access_codes, user_apps, users`); err != nil {
 		t.Fatal(err)
 	}
 	accounts, err := store.New(pool, bcrypt.MinCost)

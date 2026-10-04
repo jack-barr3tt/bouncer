@@ -9,10 +9,20 @@ services:
       - bouncer-db:/var/lib/postgresql/data
     restart: unless-stopped
 
+  builder:
+    image: ${REGISTRY}/bouncer-builder:${IMAGE_TAG}
+    environment:
+      BUILDER_TOKEN: ${BUILDER_TOKEN:-}
+      WORKSPACE: /workspace
+    volumes:
+      - workspace:/workspace
+    restart: unless-stopped
+
   bouncer:
     image: ${REGISTRY}/bouncer:${IMAGE_TAG}
     depends_on:
       - postgres
+      - builder
     ports:
       - "127.0.0.1:${PORT:-8080}:8080"
     env_file:
@@ -22,9 +32,20 @@ services:
       SITE_ROOT: /site
       HUB_DIR: /opt/bouncer/hub
       LISTEN_ADDR: ":8080"
+      GIT_REMOTE: ${GIT_REMOTE:-}
+      GIT_BRANCH: ${GIT_BRANCH:-main}
+      DEPLOY_WEBHOOK_SECRET: ${DEPLOY_WEBHOOK_SECRET:-}
+      DEPLOY_TOKEN: ${DEPLOY_TOKEN:-}
+      DEPLOY_POLL_INTERVAL: ${DEPLOY_POLL_INTERVAL:-}
+      BUILDER_URL: http://builder:8081
+      BUILDER_TOKEN: ${BUILDER_TOKEN:-}
+      WORKSPACE: /workspace
     volumes:
       - ${SITE_PATH}:/site
+      - workspace:/workspace
+      - ${GIT_SSH_KEY_FILE:-./git-key}:/run/bouncer/git-key:ro
     restart: unless-stopped
 
 volumes:
   bouncer-db:
+  workspace:

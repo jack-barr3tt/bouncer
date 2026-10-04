@@ -20,8 +20,14 @@ RUN cd server && go mod download
 COPY server server
 RUN cd server && CGO_ENABLED=0 go build -o /bouncer ./cmd/bouncer
 
+FROM node:22-alpine AS builder
+COPY --from=server /bouncer /usr/local/bin/bouncer
+ENV WORKSPACE=/workspace
+EXPOSE 8081
+ENTRYPOINT ["bouncer", "builder"]
+
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates git openssh-client
 COPY --from=server /bouncer /usr/local/bin/bouncer
 COPY --from=hub /src/hub/dist /opt/bouncer/hub
 COPY scaffold /opt/bouncer/scaffold

@@ -149,6 +149,30 @@ export function revokeTemporaryAccount(id: string): Promise<void> {
   return send(`/api/temporary-accounts/${id}/revoke`, { method: 'POST' })
 }
 
+export type DeployRun = {
+  sha: string
+  status: 'running' | 'published' | 'failed'
+  startedAt: string
+  finishedAt?: string
+  log: string
+}
+
+export type DeployState = {
+  enabled: boolean
+  remote: string
+  branch: string
+  webhookUrl: string
+  latest?: DeployRun | null
+}
+
+export function getDeploy(): Promise<DeployState> {
+  return send('/api/deploy')
+}
+
+export function runDeploy(): Promise<void> {
+  return send('/api/deploy/run', { method: 'POST' })
+}
+
 export function isAppEntry(value: unknown): value is AppEntry {
   if (typeof value !== 'object' || value === null) return false
   const entry = value as Record<string, unknown>

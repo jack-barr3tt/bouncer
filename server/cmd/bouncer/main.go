@@ -10,10 +10,18 @@ import (
 
 	"github.com/jack-barr3tt/bouncer/db"
 	"github.com/jack-barr3tt/bouncer/internal/api"
+	"github.com/jack-barr3tt/bouncer/internal/deploy"
 	"github.com/jack-barr3tt/bouncer/internal/store"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "builder" {
+		if err := deploy.ListenAndServeBuilder(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		log.Fatal("DATABASE_URL is required")
@@ -61,6 +69,18 @@ func main() {
 		base = "http://127.0.0.1" + portSuffix(listen)
 	}
 
+	ships, err := deploy.FromEnv(pool, root, base)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := ships.Recover(ctx); err != nil {
+		log.Fatal(err)
+	}
+	if ships.Enabled() {
+		log.Printf("git deploy enabled for branch %s", ships.Branch())
+	}
+	go ships.Poll(context.Background())
+
 	app, err := api.NewApp(api.Config{
 		Pool:           pool,
 		SiteRoot:       root,
@@ -68,6 +88,7 @@ func main() {
 		PublicBaseURL:  base,
 		TrustedProxies: splitList(os.Getenv("TRUSTED_PROXIES")),
 		CookieSecure:   os.Getenv("COOKIE_SECURE"),
+		Deploy:         ships,
 	})
 	if err != nil {
 		log.Fatal(err)
