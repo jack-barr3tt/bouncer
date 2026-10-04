@@ -68,3 +68,16 @@ steps:
       - npm install -g npm@^11.15.0
       - (cd client && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && npm stage publish --access public && npm stage list --json)
       - (cd create && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && node vendor.mjs && npm stage publish --access public && npm stage list --json)
+
+  - name: github-release
+    image: node:22-alpine
+    depends_on:
+      - publish-image
+      - stage-packages
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
+    commands:
+      - apk add --no-cache git
+      - git fetch --tags --unshallow origin || git fetch --tags origin
+      - node scripts/github-release.mjs

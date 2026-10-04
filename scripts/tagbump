@@ -63,6 +63,14 @@ if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
   exit 1
 fi
 
+if git rev-parse -q --verify "refs/tags/${latest}" >/dev/null; then
+  preview=$(node scripts/release-notes.mjs "$latest" HEAD "$next_version") || exit 1
+  if [ -z "$preview" ]; then
+    echo "no merged pull requests since ${latest}" >&2
+    exit 1
+  fi
+fi
+
 changed=0
 for dir in client create; do
   current=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version)' "$dir/package.json")
@@ -76,6 +84,14 @@ if [ "$changed" -eq 1 ]; then
   git commit -m "Release ${next}"
 fi
 
+if git rev-parse -q --verify "refs/tags/${latest}" >/dev/null; then
+  notes=$(node scripts/release-notes.mjs "$latest" HEAD "$next_version") || exit 1
+else
+  notes=$(node scripts/release-notes.mjs - HEAD "$next_version") || exit 1
+fi
+
 git tag "$next"
 echo "$next"
+echo
+printf '%s\n' "$notes"
 echo "push with: git push origin main ${next}"

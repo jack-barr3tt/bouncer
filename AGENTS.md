@@ -25,7 +25,7 @@ The OpenAPI file is `server/openapi.yaml`. Regenerate with `oapi-codegen` (`serv
 
 App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE_ROOT/apps/<slug>` otherwise. `/apps.yaml` is always read from `SITE_ROOT`. The server checks that file against the schema in `server/schema/apps.schema.json`.
 
-An empty site receives `AGENTS.md`, `apps/AGENTS.md`, `apps.yaml`, and the Hello sample in `scaffold/apps/hello/` on startup, including a built `dist`. A site that already has `apps.yaml` is left alone. The schema stays in this repository. Apps depend on `@jack-barr3tt/bouncer-client` from npm. The client is TypeScript; `npm run build` in `client/` writes `dist/`, which is what gets published. Until that version is on npm, build it and `npm link` from `client/`. The sample's lockfile points at `client/` in this repository.
+An empty site receives `AGENTS.md`, `apps/AGENTS.md`, `apps.yaml`, and the Hello sample in `scaffold/apps/hello/` on startup, including a built `dist`. A site that already has `apps.yaml` is left alone. The schema stays in this repository. Apps depend on `@jack-barr3tt/bouncer-client` from npm.
 
 ## Auth
 
@@ -46,16 +46,18 @@ Each pipeline builds the apps that changed and publishes their `dist` directorie
 ## Local run
 
 ```bash
-SITE_ROOT=../apps AUTH_BOOTSTRAP_USERNAME=admin AUTH_BOOTSTRAP_PASSWORD=change-me docker compose up --build
+SITE_ROOT=../apps AUTH_BOOTSTRAP_USERNAME=admin AUTH_BOOTSTRAP_PASSWORD=change-me docker compose up
 ```
 
 `SITE_ROOT` defaults to `../apps`. Postgres is published on port 5436.
 
 ## Release
 
-Pull requests and pushes to `main` run the server tests, hub lint, the site script tests, and the create-bouncer tests. Pull requests also build the client and Hello. `scripts/tagbump patch` (or `minor`, or `major`) tags the next version on a clean `main`. With no tags yet, the count starts at `v0.0.0`, so the first `v0.1.0` is `scripts/tagbump minor`.
+Pull requests and pushes to `main` run the server tests, hub lint, the site script tests, and the create-bouncer tests. Pull requests also build the client and Hello. A pull request has one change-type label: `security`, `feature`, `fix`, `docs`, `test`, `deps`, or `chore`. Create those labels on the repository. The pull request check fails otherwise, and it reruns when the labels change. Other labels can sit alongside that one.
 
-Push the tag. Woodpecker publishes `ghcr.io/jack-barr3tt/bouncer:<version>` and stages `@jack-barr3tt/bouncer-client` and `@jack-barr3tt/create-bouncer`. Approve each staged package on npmjs.com, or with `npm stage approve <id>`. Approval asks for a one-time code. The site repository deploys its apps.
+`scripts/tagbump patch` (or `minor`, or `major`) lists the merged pull requests since the previous tag and prints release notes. A note is the pull request title linked to that pull request, under the heading for its label. The tag is lightweight. With no tags yet, the count starts at `v0.0.0`, so the first `v0.1.0` is `scripts/tagbump minor`.
+
+Push the tag. Woodpecker publishes `ghcr.io/jack-barr3tt/bouncer:<version>`, stages `@jack-barr3tt/bouncer-client` and `@jack-barr3tt/create-bouncer`, and opens a GitHub release with those notes. Approve each staged package on npmjs.com, or with `npm stage approve <id>`. Approval asks for a one-time code. The site repository deploys its apps.
 
 Secrets, set in Woodpecker:
 
@@ -64,6 +66,7 @@ Secrets, set in Woodpecker:
 | `registry_user` | GHCR user |
 | `registry_token` | GHCR token |
 | `npm_token` | npm token that can stage the client and `create-bouncer` |
+| `github_token` | GitHub token that can read pull requests and create releases |
 
 `deploy/docker-compose.yml` runs the published image. `deploy/.env` comes from `deploy/.env.example`. `SITE_PATH` in that file is the consumer site directory mounted into the container.
 
@@ -72,7 +75,7 @@ Secrets, set in Woodpecker:
 ```bash
 cd client && npm ci && npm run build
 cd create && npm ci && npm test
-node --test templates/site/scripts/*.test.mjs
+node --test scripts/*.test.mjs templates/site/scripts/*.test.mjs
 cd server && go test ./...
 cd hub && npm ci && npm run lint && npm run build
 cd scaffold/apps/hello && npm ci && npm run lint && npm run build
