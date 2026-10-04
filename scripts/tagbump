@@ -63,12 +63,21 @@ if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
   exit 1
 fi
 
+# GitHub can only see pushed commits. The release commit is created below.
+notes_rev=$(git rev-parse HEAD)
+if git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
+  if ! git merge-base --is-ancestor "$notes_rev" origin/main; then
+    notes_rev=$(git merge-base "$notes_rev" origin/main)
+  fi
+fi
 if git rev-parse -q --verify "refs/tags/${latest}" >/dev/null; then
-  preview=$(node scripts/release-notes.mjs "$latest" HEAD "$next_version") || exit 1
-  if [ -z "$preview" ]; then
+  notes=$(node scripts/release-notes.mjs "$latest" "$notes_rev" "$next_version") || exit 1
+  if [ -z "$notes" ]; then
     echo "no merged pull requests since ${latest}" >&2
     exit 1
   fi
+else
+  notes=$(node scripts/release-notes.mjs - "$notes_rev" "$next_version") || exit 1
 fi
 
 changed=0
@@ -82,12 +91,6 @@ for dir in client create; do
 done
 if [ "$changed" -eq 1 ]; then
   git commit -m "Release ${next}"
-fi
-
-if git rev-parse -q --verify "refs/tags/${latest}" >/dev/null; then
-  notes=$(node scripts/release-notes.mjs "$latest" HEAD "$next_version") || exit 1
-else
-  notes=$(node scripts/release-notes.mjs - HEAD "$next_version") || exit 1
 fi
 
 git tag "$next"
