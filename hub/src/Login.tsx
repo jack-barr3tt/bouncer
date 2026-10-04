@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { login, type Session } from './api.ts'
+import { useState, type SubmitEvent } from 'react'
+import { useLogin, type Session } from './api/generated.ts'
 import { visitorId } from './fingerprint.ts'
 
 function safeNext(value: string | null, session: Session): string {
@@ -16,14 +16,17 @@ export default function Login({ onSession }: { onSession: (session: Session) => 
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  const login = useLogin()
 
-  async function onSubmit(event: FormEvent) {
+  async function onSubmit(event: SubmitEvent) {
     event.preventDefault()
     setError('')
     setPending(true)
     try {
       const fingerprint = await visitorId().catch(() => '')
-      const session = await login(username, password, fingerprint)
+      const session = await login.mutateAsync({
+        data: { username, password, fingerprint: fingerprint || undefined },
+      })
       onSession(session)
       const next = new URLSearchParams(window.location.search).get('next')
       window.location.assign(safeNext(next, session))
@@ -33,7 +36,7 @@ export default function Login({ onSession }: { onSession: (session: Session) => 
     }
   }
 
-  function openCode(event: FormEvent) {
+  function openCode(event: SubmitEvent) {
     event.preventDefault()
     const normalized = code.toUpperCase().replace(/[\s-]/g, '')
     if (!normalized) return

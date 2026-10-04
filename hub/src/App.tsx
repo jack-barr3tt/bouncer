@@ -1,9 +1,12 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import Admin from './Admin.tsx'
-import { getSession, loadRegistry, watchAccess, type AppEntry, type Session } from './api.ts'
+import { getGetSessionQueryKey, useGetSession, type Session } from './api/generated.ts'
+import { isUnauthorized } from './api/mutator.ts'
 import Home from './Home.tsx'
 import Join from './Join.tsx'
 import Login from './Login.tsx'
+import { loadRegistry, watchAccess } from './registry.ts'
 
 function screen(path: string): 'login' | 'join' | 'admin' | 'home' {
   if (path === '/login') return 'login'
@@ -13,10 +16,16 @@ function screen(path: string): 'login' | 'join' | 'admin' | 'home' {
 }
 
 export default function App() {
+  const queryClient = useQueryClient()
   const [path, setPath] = useState(window.location.pathname)
-  const [session, setSession] = useState<Session | null | undefined>(undefined)
-  const [apps, setApps] = useState<AppEntry[]>([])
-  const [error, setError] = useState('')
+  const sessionQuery = useGetSession({ query: { retry: false } })
+  const registryQuery = useQuery({ queryKey: ['apps.yaml'], queryFn: loadRegistry })
+  const signedOut = isUnauthorized(sessionQuery.error)
+  const session = signedOut ? null : sessionQuery.data
+  const sessionError =
+    sessionQuery.isError && !signedOut && sessionQuery.error instanceof Error ? sessionQuery.error.message : ''
+  const registryError = registryQuery.error instanceof Error ? registryQuery.error.message : ''
+  const error = sessionError || registryError
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname)
@@ -24,45 +33,32 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  useEffect(() => {
-    const controller = new AbortController()
-    getSession()
-      .then((next) => {
-        if (!controller.signal.aborted) setSession(next)
-      })
-      .catch((caught: unknown) => {
-        if (controller.signal.aborted) return
-        setSession(null)
-        setError(caught instanceof Error ? caught.message : 'Could not load the session.')
-      })
-    loadRegistry()
-      .then((next) => {
-        if (!controller.signal.aborted) setApps(next)
-      })
-      .catch((caught: unknown) => {
-        if (controller.signal.aborted) return
-        setError(caught instanceof Error ? caught.message : 'Could not load the app list.')
-      })
-    return () => controller.abort()
-  }, [])
-
   const identity = session ? `${session.kind}:${session.username ?? ''}:${session.nickname ?? ''}` : ''
   useEffect(() => {
     if (!identity) return
     return watchAccess(
-      (allowed) => setSession((current) => (current ? { ...current, apps: allowed } : current)),
+      (allowed) => {
+        queryClient.setQueryData<Session>(getGetSessionQueryKey(), (current) =>
+          current ? { ...current, apps: allowed } : current,
+        )
+      },
       () => {
         window.location.assign('/login')
       },
     )
-  }, [identity])
+  }, [identity, queryClient])
 
-  if (session === undefined && !error) {
+  function onSession(next: Session | null) {
+    if (next) queryClient.setQueryData(getGetSessionQueryKey(), next)
+    else queryClient.removeQueries({ queryKey: getGetSessionQueryKey() })
+  }
+
+  if (sessionQuery.isPending && !error) {
     return <p className="px-6 py-16 text-stone-600">Loading…</p>
   }
 
   const view = screen(path)
-  if (view === 'login') return <Login onSession={setSession} />
+  if (view === 'login') return <Login onSession={onSession} />
   if (view === 'join') return <Join />
   if (view === 'admin') {
     if (!session || session.role !== 'admin') {
@@ -75,7 +71,7 @@ export default function App() {
         </main>
       )
     }
-    return <Admin apps={apps} />
+    return <Admin apps={registryQuery.data ?? []} />
   }
 
   return (
@@ -85,7 +81,7 @@ export default function App() {
           {error}
         </p>
       ) : null}
-      <Home session={session ?? null} apps={apps} onSession={setSession} />
+      <Home session={session ?? null} apps={registryQuery.data ?? []} onSession={onSession} />
     </>
   )
 }

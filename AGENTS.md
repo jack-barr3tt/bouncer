@@ -19,7 +19,7 @@ deploy/          Compose for running the published image with a site mounted
 .woodpecker/     Pull request checks, main checks, and release
 ```
 
-The OpenAPI file is `server/openapi.yaml`. Regenerate with `oapi-codegen` (`server/oapi-codegen.yaml`). Do not edit `server/internal/api/gen.go`.
+The OpenAPI file is `server/openapi.yaml`. Regenerate the server with `oapi-codegen` (`server/oapi-codegen.yaml`). Do not edit `server/internal/api/gen.go`. Regenerate the hub client with `npm run generate` in `hub/` (`hub/orval.config.ts`). Do not edit `hub/src/api/generated.ts`.
 
 ## Site
 

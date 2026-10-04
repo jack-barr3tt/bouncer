@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { logout, type AppEntry, type Session } from './api.ts'
+import { useLogout, type Session } from './api/generated.ts'
+import type { AppEntry } from './registry.ts'
 
 type Availability = 'up' | 'down'
 
@@ -38,6 +39,7 @@ export default function Home({
   onSession: (session: Session | null) => void
 }) {
   const [availability, setAvailability] = useState<Record<string, Availability>>({})
+  const logout = useLogout()
   const visible = session ? apps.filter((app) => session.apps.includes(app.slug)) : []
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export default function Home({
   }, [session, apps])
 
   async function signOut() {
-    await logout()
+    await logout.mutateAsync()
     onSession(null)
     window.location.assign('/login')
   }
