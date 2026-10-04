@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -63,4 +63,19 @@ test('forgejo and the cli use the same layout', () => {
   assert.equal(result.status, 0, result.stderr)
   assert.match(readFileSync(join(dir, '.forgejo', 'workflows', 'pr.yaml'), 'utf8'), /pull_request/)
   assert.match(readFileSync(join(dir, 'deploy', '.env.example'), 'utf8'), /COOKIE_SECURE=false/)
+})
+
+test('the cli runs when the bin is a symlink', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'bouncer-site-'))
+  const linkDir = mkdtempSync(join(tmpdir(), 'bouncer-bin-'))
+  const link = join(linkDir, 'create-bouncer')
+  symlinkSync(join(import.meta.dirname, 'dist', 'index.js'), link)
+  const result = spawnSync(
+    process.execPath,
+    [link, dir, '--ci', 'github', '--public-url', 'https://apps.example.com', '--site-path', '/var/www/apps'],
+    { encoding: 'utf8' },
+  )
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /Wrote:/)
+  assert.ok(existsSync(join(dir, '.github', 'workflows', 'pr.yaml')))
 })

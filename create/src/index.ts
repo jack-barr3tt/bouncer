@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -129,7 +129,17 @@ function printResult(dir: string, ci: CiSystem, wrote: string[], skipped: string
   }
 }
 
-const isMain = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href
+const isMain = invokedAsCli()
+
+function invokedAsCli(): boolean {
+  const entry = process.argv[1]
+  if (entry === undefined) return false
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(entry)).href
+  } catch {
+    return false
+  }
+}
 if (isMain) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error)
