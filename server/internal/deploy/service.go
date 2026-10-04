@@ -41,6 +41,19 @@ type Status struct {
 	Branch     string
 	WebhookURL string
 	Latest     *Run
+	Repos      []RepoStatus
+}
+
+type RepoStatus struct {
+	Path   string
+	Remote string
+	Branch string
+	Latest *Run
+}
+
+type deployJob struct {
+	remote string
+	sha    string
 }
 
 type Service struct {
@@ -48,11 +61,11 @@ type Service struct {
 	store   history
 	repo    Repo
 	client  *http.Client
-	execute func(context.Context, string)
+	execute func(context.Context, string, string)
 	mu      sync.Mutex
 	running bool
-	active  string
-	next    *string
+	active  deployJob
+	waiting []deployJob
 }
 
 func New(cfg Config) (*Service, error) {
@@ -73,30 +86,29 @@ func New(cfg Config) (*Service, error) {
 	}
 	cfg.PublicBase = strings.TrimRight(strings.TrimSpace(cfg.PublicBase), "/")
 	cfg.Remote = strings.TrimSpace(cfg.Remote)
-	if cfg.Remote == "" {
-		return &Service{cfg: cfg}, nil
-	}
-	if !validRemote(cfg.Remote) {
-		return nil, fmt.Errorf("GIT_REMOTE is not valid")
-	}
-	if !validBranch(cfg.Branch) {
-		return nil, fmt.Errorf("GIT_BRANCH is not valid")
-	}
-	if strings.TrimSpace(cfg.BuilderToken) == "" {
-		return nil, fmt.Errorf("BUILDER_TOKEN is required when GIT_REMOTE is set")
-	}
 	if strings.Contains(cfg.RuntimeDir, "'") {
 		return nil, fmt.Errorf("runtime dir is not valid")
 	}
-	if cfg.store == nil {
-		if cfg.Pool == nil {
+	if cfg.Remote != "" {
+		if !validRemote(cfg.Remote) {
+			return nil, fmt.Errorf("GIT_REMOTE is not valid")
+		}
+		if !validBranch(cfg.Branch) {
+			return nil, fmt.Errorf("GIT_BRANCH is not valid")
+		}
+		if strings.TrimSpace(cfg.BuilderToken) == "" {
+			return nil, fmt.Errorf("BUILDER_TOKEN is required when GIT_REMOTE is set")
+		}
+		if cfg.store == nil && cfg.Pool == nil {
 			return nil, fmt.Errorf("database is required when GIT_REMOTE is set")
 		}
+	}
+	if cfg.store == nil && cfg.Pool != nil {
 		cfg.store = &pgStore{pool: cfg.Pool}
 	}
 	svc := &Service{
-		cfg:    cfg,
-		store:  cfg.store,
+		cfg:   cfg,
+		store: cfg.store,
 		client: &http.Client{},
 		repo: Repo{
 			Dir:        filepath.Join(cfg.Workspace, "src"),
@@ -107,10 +119,35 @@ func New(cfg Config) (*Service, error) {
 		},
 	}
 	svc.execute = svc.run
+	if cfg.Remote == "" && cfg.SiteRoot != "" {
+		repos, err := svc.discover()
+		if err == nil && len(repos) > 0 {
+			if strings.TrimSpace(cfg.BuilderToken) == "" {
+				return nil, fmt.Errorf("BUILDER_TOKEN is required when an app source is set")
+			}
+			if svc.store == nil {
+				return nil, fmt.Errorf("database is required when an app source is set")
+			}
+		}
+	}
 	return svc, nil
 }
 
-func (s *Service) Enabled() bool { return s != nil && s.cfg.Remote != "" }
+func (s *Service) Enabled() bool {
+	if s == nil {
+		return false
+	}
+	if s.cfg.Remote != "" {
+		return true
+	}
+	repos, err := s.discover()
+	return err == nil && len(repos) > 0
+}
+
+func (s *Service) sourceMode() bool {
+	repos, err := s.discover()
+	return err == nil && len(repos) > 0
+}
 
 func (s *Service) WebhookEnabled() bool {
 	return s.Enabled() && strings.TrimSpace(s.cfg.WebhookSecret) != ""
@@ -129,23 +166,43 @@ func (s *Service) AcceptBearer(header string) bool {
 func (s *Service) Status(ctx context.Context) (Status, error) {
 	out := Status{
 		Enabled:    s.Enabled(),
-		Remote:     s.cfg.Remote,
-		Branch:     s.cfg.Branch,
 		WebhookURL: s.cfg.PublicBase + "/api/hooks/git",
+		Repos:      []RepoStatus{},
 	}
-	if !out.Enabled || s.store == nil {
-		if !out.Enabled {
-			out.Remote = ""
-			out.Branch = ""
-			out.WebhookURL = ""
+	if !out.Enabled {
+		out.WebhookURL = ""
+		return out, nil
+	}
+	if s.sourceMode() {
+		repos, err := s.discover()
+		if err != nil {
+			return Status{}, err
+		}
+		for _, repo := range repos {
+			item := RepoStatus{Path: repo.Path, Remote: repo.Remote, Branch: repo.Branch}
+			if s.store != nil && repo.Remote != "" {
+				latest, err := s.store.Latest(ctx, repo.Remote)
+				if err != nil {
+					return Status{}, err
+				}
+				item.Latest = latest
+			}
+			out.Repos = append(out.Repos, item)
 		}
 		return out, nil
 	}
-	latest, err := s.store.Latest(ctx)
+	out.Remote = s.cfg.Remote
+	out.Branch = s.cfg.Branch
+	if s.store == nil {
+		out.Repos = []RepoStatus{{Remote: s.cfg.Remote, Branch: s.cfg.Branch}}
+		return out, nil
+	}
+	latest, err := s.store.Latest(ctx, "")
 	if err != nil {
 		return Status{}, err
 	}
 	out.Latest = latest
+	out.Repos = []RepoStatus{{Remote: s.cfg.Remote, Branch: s.cfg.Branch, Latest: latest}}
 	return out, nil
 }
 
@@ -175,64 +232,119 @@ func (s *Service) Poll(ctx context.Context) {
 }
 
 func (s *Service) pollOnce(ctx context.Context) error {
+	if s.sourceMode() {
+		return s.pollSources(ctx)
+	}
+	if s.cfg.Remote == "" {
+		return nil
+	}
 	tip, err := s.repo.Tip(ctx)
 	if err != nil {
 		return err
 	}
-	last, err := s.store.LastPublished(ctx)
+	last, err := s.store.LastPublished(ctx, "")
 	if err != nil {
 		return err
 	}
 	if tip != last {
-		s.Enqueue(tip)
+		s.Enqueue("", tip)
 	}
 	return nil
 }
 
-func (s *Service) Enqueue(sha string) {
+func (s *Service) pollSources(ctx context.Context) error {
+	repos, err := s.discover()
+	if err != nil {
+		return err
+	}
+	if s.store == nil {
+		return fmt.Errorf("database is required when an app source is set")
+	}
+	var failed error
+	for _, repo := range repos {
+		if repo.Err != "" || repo.Remote == "" {
+			continue
+		}
+		checkout := s.checkout(repo)
+		tip, err := checkout.Tip(ctx)
+		if err != nil {
+			failed = err
+			log.Printf("deploy poll %s: %v", repo.Path, err)
+			continue
+		}
+		last, err := s.store.LastPublished(ctx, repo.Remote)
+		if err != nil {
+			return err
+		}
+		if tip != last {
+			s.Enqueue(repo.Remote, tip)
+		}
+	}
+	return failed
+}
+
+func (s *Service) Enqueue(remote, sha string) {
 	if !s.Enabled() {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.running {
-		if sha == s.active {
+		if s.active.remote == remote && s.active.sha == sha {
 			return
 		}
-		copied := sha
-		s.next = &copied
+		s.setWaiting(remote, sha)
 		return
 	}
 	s.running = true
-	s.active = sha
-	go s.loop(sha)
+	s.active = deployJob{remote: remote, sha: sha}
+	go s.loop(remote, sha)
 }
 
-func (s *Service) loop(sha string) {
+func (s *Service) setWaiting(remote, sha string) {
+	for i := range s.waiting {
+		if s.waiting[i].remote == remote {
+			s.waiting[i].sha = sha
+			return
+		}
+	}
+	s.waiting = append(s.waiting, deployJob{remote: remote, sha: sha})
+}
+
+func (s *Service) loop(remote, sha string) {
 	for {
-		s.execute(context.Background(), sha)
+		s.execute(context.Background(), remote, sha)
 		s.mu.Lock()
-		if s.next == nil {
+		if len(s.waiting) == 0 {
 			s.running = false
-			s.active = ""
+			s.active = deployJob{}
 			s.mu.Unlock()
 			return
 		}
-		sha = *s.next
-		s.active = sha
-		s.next = nil
+		job := s.waiting[0]
+		s.waiting = s.waiting[1:]
+		s.active = job
+		remote, sha = job.remote, job.sha
 		s.mu.Unlock()
 	}
 }
 
-func (s *Service) run(ctx context.Context, sha string) {
+func (s *Service) run(ctx context.Context, remote, sha string) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Hour)
 	defer cancel()
-	s.perform(ctx, sha)
+	s.perform(ctx, remote, sha)
 }
 
-func (s *Service) perform(ctx context.Context, requested string) {
-	id, err := s.store.Start(ctx, requested)
+func (s *Service) perform(ctx context.Context, remote, requested string) {
+	if s.sourceMode() {
+		s.performSources(ctx, remote, requested)
+		return
+	}
+	s.performLegacy(ctx, requested)
+}
+
+func (s *Service) performLegacy(ctx context.Context, requested string) {
+	id, err := s.store.Start(ctx, "", requested)
 	if err != nil {
 		log.Printf("deploy %s: %v", requested, err)
 		return
@@ -253,7 +365,7 @@ func (s *Service) perform(ctx context.Context, requested string) {
 		log.Printf("deploy %s failed: %v", requested, syncErr)
 		return
 	}
-	last, err := s.store.LastPublished(ctx)
+	last, err := s.store.LastPublished(ctx, "")
 	if err != nil {
 		fmt.Fprintf(&buf, "%s\n", err)
 		return
@@ -276,7 +388,11 @@ func (s *Service) perform(ctx context.Context, requested string) {
 		fmt.Fprintf(&buf, "apps: none\n")
 	} else {
 		fmt.Fprintf(&buf, "apps: %s\n", strings.Join(slugs, ", "))
-		buildLog, err := s.build(ctx, slugs)
+		apps := make([]BuildApp, 0, len(slugs))
+		for _, slug := range slugs {
+			apps = append(apps, BuildApp{Slug: slug, Dir: "src/apps/" + slug})
+		}
+		buildLog, err := s.build(ctx, apps)
 		buf.WriteString(buildLog)
 		if buildLog != "" && !strings.HasSuffix(buildLog, "\n") {
 			buf.WriteByte('\n')

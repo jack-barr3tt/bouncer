@@ -56,14 +56,22 @@ func (b *Builder) handleBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Slugs []string `json:"slugs"`
+		Slugs []string   `json:"slugs"`
+		Apps  []BuildApp `json:"apps"`
 	}
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err := dec.Decode(&req); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return
 	}
-	logText, err := b.Build(r.Context(), req.Slugs)
+	apps := req.Apps
+	if len(apps) == 0 {
+		apps = make([]BuildApp, 0, len(req.Slugs))
+		for _, slug := range req.Slugs {
+			apps = append(apps, BuildApp{Slug: slug, Dir: "src/apps/" + slug})
+		}
+	}
+	logText, err := b.Build(r.Context(), apps)
 	status := http.StatusOK
 	if err != nil {
 		status = http.StatusInternalServerError
@@ -77,7 +85,12 @@ func (b *Builder) handleBuild(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": err == nil, "log": logText})
 }
 
-func (b *Builder) Build(ctx context.Context, slugs []string) (string, error) {
+type BuildApp struct {
+	Slug string `json:"slug"`
+	Dir  string `json:"dir"`
+}
+
+func (b *Builder) Build(ctx context.Context, apps []BuildApp) (string, error) {
 	run := b.Run
 	if run == nil {
 		run = defaultExec
@@ -88,17 +101,20 @@ func (b *Builder) Build(ctx context.Context, slugs []string) (string, error) {
 	}
 	var buf strings.Builder
 	seen := map[string]struct{}{}
-	for _, slug := range slugs {
-		if !safeSlug(slug) {
-			return buf.String(), fmt.Errorf("invalid slug %q", slug)
+	for _, app := range apps {
+		if !safeSlug(app.Slug) {
+			return buf.String(), fmt.Errorf("invalid slug %q", app.Slug)
 		}
-		if _, ok := seen[slug]; ok {
+		if _, ok := seen[app.Slug]; ok {
 			continue
 		}
-		seen[slug] = struct{}{}
-		dir := filepath.Join(b.Workspace, "src", "apps", slug)
+		seen[app.Slug] = struct{}{}
+		dir, err := buildDir(b.Workspace, app.Dir)
+		if err != nil {
+			return buf.String(), err
+		}
 		if _, err := os.Stat(filepath.Join(dir, "package.json")); err != nil {
-			return buf.String(), fmt.Errorf("%s has no package.json", slug)
+			return buf.String(), fmt.Errorf("%s has no package.json", app.Slug)
 		}
 		appCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		text, err := run(appCtx, dir, "npm", "ci")
@@ -114,14 +130,35 @@ func (b *Builder) Build(ctx context.Context, slugs []string) (string, error) {
 		dist := filepath.Join(dir, "dist")
 		info, statErr := os.Stat(dist)
 		if statErr != nil || !info.IsDir() {
-			return buf.String(), fmt.Errorf("%s did not produce dist", slug)
+			return buf.String(), fmt.Errorf("%s did not produce dist", app.Slug)
 		}
-		dest := filepath.Join(out, "apps", slug, "dist")
+		dest := filepath.Join(out, "apps", app.Slug, "dist")
 		if err := copyTree(dist, dest); err != nil {
 			return buf.String(), err
 		}
 	}
 	return buf.String(), nil
+}
+
+func buildDir(workspace, dir string) (string, error) {
+	if dir == "" || strings.Contains(dir, "\\") || filepath.IsAbs(dir) {
+		return "", fmt.Errorf("invalid build dir")
+	}
+	clean := filepath.ToSlash(filepath.Clean(dir))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
+		return "", fmt.Errorf("invalid build dir")
+	}
+	for _, part := range strings.Split(clean, "/") {
+		if part == "" || part == "." || part == ".." {
+			return "", fmt.Errorf("invalid build dir")
+		}
+	}
+	full := filepath.Join(workspace, filepath.FromSlash(clean))
+	rel, err := filepath.Rel(workspace, full)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid build dir")
+	}
+	return full, nil
 }
 
 func defaultExec(ctx context.Context, dir, name string, args ...string) (string, error) {
@@ -138,17 +175,17 @@ func defaultExec(ctx context.Context, dir, name string, args ...string) (string,
 	return text, nil
 }
 
-func (s *Service) build(ctx context.Context, slugs []string) (string, error) {
+func (s *Service) build(ctx context.Context, apps []BuildApp) (string, error) {
 	if err := os.RemoveAll(s.outputDir()); err != nil {
 		return "", err
 	}
 	if err := os.MkdirAll(s.outputDir(), 0o755); err != nil {
 		return "", err
 	}
-	timeout := time.Duration(len(slugs)) * 10 * time.Minute
+	timeout := time.Duration(len(apps)) * 10 * time.Minute
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	payload, err := json.Marshal(map[string]any{"slugs": slugs})
+	payload, err := json.Marshal(map[string]any{"apps": apps})
 	if err != nil {
 		return "", err
 	}

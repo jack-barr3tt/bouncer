@@ -10,6 +10,59 @@ import (
 	"github.com/jack-barr3tt/bouncer/internal/site"
 )
 
+func PublishDists(siteRoot, output string, targets []DistTarget) error {
+	var staged []DistTarget
+	for _, target := range targets {
+		if err := placeDist(siteRoot, output, target); err != nil {
+			_ = os.RemoveAll(filepath.Join(siteRoot, filepath.FromSlash(target.Dir), "dist.next"))
+			for _, done := range staged {
+				_ = os.RemoveAll(filepath.Join(siteRoot, filepath.FromSlash(done.Dir), "dist.next"))
+			}
+			return err
+		}
+		staged = append(staged, target)
+	}
+	for _, target := range staged {
+		live := filepath.Join(siteRoot, filepath.FromSlash(target.Dir), "dist")
+		if err := swapDir(live, live+".next"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type DistTarget struct {
+	Slug string
+	Dir  string
+}
+
+func placeDist(siteRoot, output string, target DistTarget) error {
+	dir, err := site.CleanSource(target.Dir)
+	if err != nil {
+		return err
+	}
+	if !safeSlug(target.Slug) {
+		return fmt.Errorf("invalid slug %q", target.Slug)
+	}
+	src := filepath.Join(output, "apps", target.Slug, "dist")
+	info, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("dist for %s: %w", target.Slug, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("dist for %s is not a directory", target.Slug)
+	}
+	destDir := filepath.Join(siteRoot, filepath.FromSlash(dir))
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return err
+	}
+	staged := filepath.Join(destDir, "dist.next")
+	if err := os.RemoveAll(staged); err != nil {
+		return err
+	}
+	return copyTree(src, staged)
+}
+
 func Publish(siteRoot, checkout, output string, slugs []string) error {
 	yamlPath := filepath.Join(checkout, "apps.yaml")
 	if _, err := os.Stat(yamlPath); err != nil {

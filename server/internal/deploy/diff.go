@@ -54,6 +54,37 @@ func ListAppSlugs(appsDir string) ([]string, error) {
 	return slugs, nil
 }
 
+type sourcedApp struct {
+	Slug string
+	Rel  string
+}
+
+func AppsFromDiff(diff string, apps []sourcedApp) []string {
+	lines := strings.Split(diff, "\n")
+	var found []string
+	for _, app := range apps {
+		if appMatchesDiff(app.Rel, lines) {
+			found = append(found, app.Slug)
+		}
+	}
+	sort.Strings(found)
+	return found
+}
+
+func appMatchesDiff(rel string, lines []string) bool {
+	prefix := rel + "/"
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if rel == "." || line == rel || strings.HasPrefix(line, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func SlugsFromDiff(diff string, apps []string) []string {
 	known := make(map[string]struct{}, len(apps))
 	for _, app := range apps {

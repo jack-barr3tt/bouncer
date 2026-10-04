@@ -2,7 +2,7 @@
 
 This directory is a site served by Bouncer. Bouncer serves the homepage, signs people in, and gates each app. You only add apps.
 
-The homepage and the auth server are not in this directory. They run in the Bouncer container. Your apps are the folders under `apps/` in this same git repository, registered in `apps.yaml`. Do not add an app by pointing at another repository.
+The homepage and the auth server are not in this directory. They run in the Bouncer container. An app is a folder under `apps/`, or a directory inside a git clone in this site, named by `source` in `apps.yaml`.
 
 ## Sample
 
@@ -19,6 +19,7 @@ Add an entry to `apps.yaml`:
 - `description` — one sentence, 200 characters or fewer.
 - `path` — exactly `/apps/<slug>/`.
 - `icon` — a short label or emoji, 32 characters or fewer.
+- `source` — directory of the Vite app inside `apps/`, when it is not `apps/<slug>`. A clone of one app is `apps/<name>`. An app inside a clone of many is `apps/<name>/<app>`. Omit `source` for a directory at `apps/<slug>` that is not a separate clone.
 
 Reserved slugs: `hub`, `assets`, `code`. Do not use them. Join links stay at `/code/<code>`.
 

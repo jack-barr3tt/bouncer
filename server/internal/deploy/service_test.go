@@ -21,7 +21,7 @@ func TestEnqueueKeepsTheNewestWaitingCommit(t *testing.T) {
 	release := make(chan struct{})
 	svc := &Service{
 		cfg: Config{Remote: "https://example.com/site.git"},
-		execute: func(ctx context.Context, sha string) {
+		execute: func(ctx context.Context, remote, sha string) {
 			mu.Lock()
 			got = append(got, sha)
 			first := len(got) == 1
@@ -32,15 +32,15 @@ func TestEnqueueKeepsTheNewestWaitingCommit(t *testing.T) {
 			}
 		},
 	}
-	svc.Enqueue("one")
+	svc.Enqueue("", "one")
 	select {
 	case <-started:
 	case <-time.After(2 * time.Second):
 		t.Fatal("deploy did not start")
 	}
-	svc.Enqueue("two")
-	svc.Enqueue("three")
-	svc.Enqueue("one")
+	svc.Enqueue("", "two")
+	svc.Enqueue("", "three")
+	svc.Enqueue("", "one")
 	close(release)
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -68,25 +68,25 @@ func TestEnqueueKeepsTheNewestWaitingCommit(t *testing.T) {
 func TestDecideHook(t *testing.T) {
 	svc := testService(t, "https://example.com/site.git")
 	body := []byte(`{"ref":"refs/heads/main","after":"0123456789abcdef0123456789abcdef01234567"}`)
-	status, sha := svc.DecideHook("push", "sha256=dead", body)
-	if status != http.StatusUnauthorized || sha != "" {
+	status, remote, sha := svc.DecideHook("push", "sha256=dead", body)
+	if status != http.StatusUnauthorized || sha != "" || remote != "" {
 		t.Fatalf("bad signature: %d %s", status, sha)
 	}
-	status, sha = svc.DecideHook("push", sign("secret", body), body)
-	if status != http.StatusAccepted || sha != "0123456789abcdef0123456789abcdef01234567" {
-		t.Fatalf("push: %d %s", status, sha)
+	status, remote, sha = svc.DecideHook("push", sign("secret", body), body)
+	if status != http.StatusAccepted || sha != "0123456789abcdef0123456789abcdef01234567" || remote != "" {
+		t.Fatalf("push: %d %s %s", status, remote, sha)
 	}
 	upper := []byte(`{"ref":"refs/heads/main","after":"0123456789ABCDEF0123456789ABCDEF01234567"}`)
-	status, sha = svc.DecideHook("push", sign("secret", upper), upper)
-	if status != http.StatusAccepted || sha != "0123456789abcdef0123456789abcdef01234567" {
+	status, remote, sha = svc.DecideHook("push", sign("secret", upper), upper)
+	if status != http.StatusAccepted || sha != "0123456789abcdef0123456789abcdef01234567" || remote != "" {
 		t.Fatalf("upper push: %d %s", status, sha)
 	}
 	other := []byte(`{"ref":"refs/heads/other","after":"0123456789abcdef0123456789abcdef01234567"}`)
-	status, sha = svc.DecideHook("push", sign("secret", other), other)
+	status, _, sha = svc.DecideHook("push", sign("secret", other), other)
 	if status != http.StatusNoContent || sha != "" {
 		t.Fatalf("other branch: %d %s", status, sha)
 	}
-	status, _ = svc.DecideHook("ping", sign("secret", []byte(`{}`)), []byte(`{}`))
+	status, _, _ = svc.DecideHook("ping", sign("secret", []byte(`{}`)), []byte(`{}`))
 	if status != http.StatusNoContent {
 		t.Fatalf("ping: %d", status)
 	}
@@ -123,15 +123,15 @@ func TestPublishChangedApp(t *testing.T) {
 			return
 		}
 		var req struct {
-			Slugs []string `json:"slugs"`
+			Apps []BuildApp `json:"apps"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "bad", http.StatusBadRequest)
 			return
 		}
-		built = append(built, req.Slugs...)
-		for _, slug := range req.Slugs {
-			writeFile(t, filepath.Join(workspace, "out", "apps", slug, "dist", "index.html"), "built-"+slug)
+		for _, app := range req.Apps {
+			built = append(built, app.Slug)
+			writeFile(t, filepath.Join(workspace, "out", "apps", app.Slug, "dist", "index.html"), "built-"+app.Slug)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "log": "built\n"})
 	}))
@@ -141,7 +141,7 @@ func TestPublishChangedApp(t *testing.T) {
 	writeFile(t, filepath.Join(siteRoot, "apps.yaml"), registry("hello"))
 	writeFile(t, filepath.Join(siteRoot, "apps", "hello", "dist", "index.html"), "old")
 	store := &memStore{}
-	store.seed(first)
+	store.seed("", first)
 	svc := testService(t, origin)
 	svc.cfg.BuilderURL = builder.URL
 	svc.cfg.Workspace = workspace
@@ -150,7 +150,7 @@ func TestPublishChangedApp(t *testing.T) {
 	svc.repo.Remote = origin
 	svc.store = store
 
-	svc.perform(context.Background(), second)
+	svc.perform(context.Background(), "", second)
 	body, err := os.ReadFile(filepath.Join(siteRoot, "apps", "hello", "dist", "index.html"))
 	if err != nil || string(body) != "built-hello" {
 		t.Fatalf("dist: %q %v", body, err)
@@ -158,13 +158,13 @@ func TestPublishChangedApp(t *testing.T) {
 	if len(built) != 1 || built[0] != "hello" {
 		t.Fatalf("built %v", built)
 	}
-	latest, err := store.Latest(context.Background())
+	latest, err := store.Latest(context.Background(), "")
 	if err != nil || latest == nil || latest.Status != "published" || latest.SHA != second {
 		t.Fatalf("latest: %+v %v", latest, err)
 	}
 
-	svc.perform(context.Background(), second)
-	again, err := store.Latest(context.Background())
+	svc.perform(context.Background(), "", second)
+	again, err := store.Latest(context.Background(), "")
 	if err != nil || again == nil || again.Status != "published" || !strings.Contains(again.Log, "already published") {
 		t.Fatalf("second run: %+v %v", again, err)
 	}
@@ -200,12 +200,12 @@ func TestFailedBuildLeavesTheLiveSite(t *testing.T) {
 	svc.repo.Dir = filepath.Join(workspace, "src")
 	svc.repo.Remote = origin
 	svc.cfg.SiteRoot = siteRoot
-	svc.perform(context.Background(), "")
+	svc.perform(context.Background(), "", "")
 	body, err := os.ReadFile(filepath.Join(siteRoot, "apps", "hello", "dist", "index.html"))
 	if err != nil || string(body) != "old" {
 		t.Fatalf("dist: %q %v", body, err)
 	}
-	latest, err := svc.store.Latest(context.Background())
+	latest, err := svc.store.Latest(context.Background(), "")
 	if err != nil || latest == nil || latest.Status != "failed" || latest.SHA != sha {
 		t.Fatalf("latest: %+v %v", latest, err)
 	}
