@@ -2,7 +2,7 @@
 
 This directory is a site served by Bouncer. Bouncer serves the homepage, signs people in, and gates each app. You only add apps.
 
-The homepage and the auth server are not in this directory. They run in the Bouncer container. Your apps are the folders under `apps/`, registered in `apps.yaml`.
+The homepage and the auth server are not in this directory. They run in the Bouncer container. Your apps are the folders under `apps/` in this same git repository, registered in `apps.yaml`. Do not add an app by pointing at another repository.
 
 ## Sample
 

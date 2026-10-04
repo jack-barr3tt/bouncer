@@ -1,6 +1,8 @@
 # Bouncer
 
-Bouncer signs people in and serves a site of static apps. A site is a directory of apps plus `apps.yaml`. This repository is the server, the homepage, and the client those apps use. It is not a collection of apps.
+Bouncer signs people in and serves a site of static apps. A site is one git repository: a directory of apps plus `apps.yaml`. One deployment mounts that one directory. Apps are folders under `apps/`. The server does not clone or combine other repositories. This repository is the server, the homepage, and the client those apps use. It is not a collection of apps.
+
+How to set up and run a site is in [README.md](README.md). How to cut a release is in [RELEASING.md](RELEASING.md).
 
 ## Layout
 
@@ -50,25 +52,6 @@ SITE_ROOT=../apps AUTH_BOOTSTRAP_USERNAME=admin AUTH_BOOTSTRAP_PASSWORD=change-m
 ```
 
 `SITE_ROOT` defaults to `../apps`. Postgres is published on port 5436.
-
-## Release
-
-Pull requests and pushes to `main` run the server tests, hub lint, the site script tests, and the create-bouncer tests. Pull requests also build the client and Hello. A pull request has one change-type label: `security`, `feature`, `fix`, `docs`, `test`, `deps`, or `chore`. Create those labels on the repository. The pull request check fails otherwise, and it reruns when the labels change. Other labels can sit alongside that one.
-
-`scripts/tagbump patch` (or `minor`, or `major`) lists the merged pull requests since the previous tag and prints release notes. A note is the pull request title linked to that pull request, under the heading for its label. The tag is lightweight. With no tags yet, the count starts at `v0.0.0`, so the first `v0.1.0` is `scripts/tagbump minor`.
-
-Push the tag. Woodpecker publishes `ghcr.io/jack-barr3tt/bouncer:<version>`, stages `@jack-barr3tt/bouncer-client` and `@jack-barr3tt/create-bouncer`, and opens a GitHub release with those notes. Approve each staged package on npmjs.com, or with `npm stage approve <id>`. Approval asks for a one-time code. The site repository deploys its apps.
-
-Secrets, set in Woodpecker:
-
-| Secret | Purpose |
-| --- | --- |
-| `registry_user` | GHCR user |
-| `registry_token` | GHCR token |
-| `npm_token` | npm token that can stage the client and `create-bouncer` |
-| `github_token` | GitHub token that can read pull requests and create releases |
-
-`deploy/docker-compose.yml` runs the published image. `deploy/.env` comes from `deploy/.env.example`. `SITE_PATH` in that file is the consumer site directory mounted into the container.
 
 ## Checks
 
