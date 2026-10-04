@@ -1,8 +1,7 @@
 FROM node:22-alpine AS hello
 WORKDIR /src
-COPY client client
 COPY scaffold/apps/hello scaffold/apps/hello
-RUN npm ci --prefix client && npm run build --prefix client && npm ci --prefix scaffold/apps/hello && npm run build --prefix scaffold/apps/hello
+RUN npm ci --prefix scaffold/apps/hello && npm run build --prefix scaffold/apps/hello
 
 FROM node:22-alpine AS hub
 WORKDIR /src
