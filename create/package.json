@@ -1,6 +1,6 @@
 {
   "name": "@jack-barr3tt/create-bouncer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Write Bouncer site files: CI pipelines, build scripts, and the compose file that runs the image.",
   "bin": {
