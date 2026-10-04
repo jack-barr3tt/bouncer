@@ -39,11 +39,11 @@ The session cookie is `bouncer_session`. Apps learn the signed-in name from `@ja
 
 ## CI templates
 
-GitHub Actions, Woodpecker, and Forgejo read pipelines from the repository they build. They cannot import a pipeline from this one. The recommended setup is `npx @jack-barr3tt/create-bouncer`. It asks which CI to use and writes the pipelines, `scripts/ci-build.mjs`, `scripts/ci-deploy.sh`, and `deploy/docker-compose.yml`.
+GitHub Actions, Woodpecker, and Forgejo read pipelines from the repository they build. They cannot import a pipeline from this one. The recommended setup is `npx @jack-barr3tt/create-bouncer`. It asks which CI to use and writes the pipelines, `scripts/ci-build.mjs`, and `deploy/docker-compose.yml`.
 
 To do that by hand, copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Run Compose from the `deploy/` directory so the env file fills in the image and the site path.
 
-Each pipeline builds the apps that changed and publishes their `dist` directories with `scripts/ci-deploy.sh`. The site installs `@jack-barr3tt/bouncer-client` from npm. Woodpecker secrets are `deploy_ssh_key`, `deploy_host`, `deploy_user`, and `deploy_path`. The Woodpecker key is the raw private key. GitHub and Forgejo use `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`, and `DEPLOY_PATH`. Those keys are base64-encoded.
+Bouncer fetches the site repository, builds the apps that changed, and publishes `apps.yaml` and those `dist` directories. Set `GIT_REMOTE`, a read-only key in `deploy/git-key`, `DEPLOY_WEBHOOK_SECRET`, and `BUILDER_TOKEN`. The forge webhook is the public origin plus `/api/hooks/git`. Pull-request pipelines still build the apps that changed. The deploy pipeline only notifies Bouncer. Woodpecker secrets for that call are `deploy_token` and `deploy_url`. GitHub and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Leave `GIT_REMOTE` empty to keep serving the files already in the site directory.
 
 ## Local run
 

@@ -2,7 +2,7 @@
 
 Have you ever wanted to quickly deploy and share a web app, using your own infrastructure, but didn't want to deal with all that hassle? Bouncer might be just what you're looking for!
 
-Bouncer is a simple way to deploy and share web apps. It runs on your own server and domain, and builds apps with Vite. One deployment is one site: a single git repository, with each app as a directory under `apps/`. CI (GitHub Actions, Woodpecker, or Forgejo) builds the apps in that repository and publishes them together. 
+Bouncer is a simple way to deploy and share web apps. It runs on your own server and domain, and builds apps with Vite. One deployment is one site: a single git repository, with each app as a directory under `apps/`. Bouncer fetches that repository and publishes the apps that changed. 
 
 Create persistent user accounts, or provide scoped temporary access via a URL, join code or QR code. Stop building auth into all your pet projects - let bouncer do it for you! You can even hook directly into Bouncer's identity system via the `@jack-barr3tt/bouncer-client` library if you want.
 
@@ -24,7 +24,7 @@ docker compose up -d
 
 Open the public URL and sign in with that account. The first start of an empty site writes `apps.yaml` and a Hello sample that is already built, so it is on the homepage immediately. Change the bootstrap password before anyone else can reach the server.
 
-Compose publishes port 8080 on `127.0.0.1`. Put TLS and your public hostname on a proxy in front of that port. The image is `ghcr.io/jack-barr3tt/bouncer`. `IMAGE_TAG` in the env file selects the tag, and defaults to `latest`. `SITE_PATH` is the site directory mounted into the container.
+Compose publishes port 8080 on `127.0.0.1`. Put TLS and your public hostname on a proxy in front of that port. The images are `ghcr.io/jack-barr3tt/bouncer` and `ghcr.io/jack-barr3tt/bouncer-builder`. `IMAGE_TAG` selects the tag for both, and defaults to `latest`. `SITE_PATH` is the site directory mounted into the server. The builder is not published on a port.
 
 ## Add an app
 
@@ -65,12 +65,34 @@ watchAccess('your-slug')
 
 While you develop, proxy `/api` to Bouncer on port 8080. The Vite dev server is not behind the gate.
 
-## Deploying app builds
+## Publish from git
 
-The pipeline `create-bouncer` writes builds the apps in this repository that changed and copies their `dist` directories onto the one site that deployment serves. Set these secrets on that repository.
+Set these in `deploy/.env`, and replace `deploy/git-key` with a read-only deploy key for the site repository:
 
-Woodpecker uses `deploy_ssh_key` (the raw private key), `deploy_host`, `deploy_user`, and `deploy_path`. GitHub Actions and Forgejo use `DEPLOY_SSH_KEY` (base64-encoded), `DEPLOY_HOST`, `DEPLOY_USER`, and `DEPLOY_PATH`. The path is the directory that receives the built apps, which is the site Bouncer mounts.
+```
+GIT_REMOTE=git@github.com:you/site.git
+GIT_BRANCH=main
+DEPLOY_WEBHOOK_SECRET=choose-a-long-secret
+BUILDER_TOKEN=choose-another-long-secret
+```
+
+`BUILDER_TOKEN` is shared with the builder container. It is not a public secret.
+
+In GitHub or Forgejo, add a webhook for push events to `https://apps.example.com/api/hooks/git`, using that webhook secret. Bouncer fetches the commit, builds the apps whose files changed, and publishes `apps.yaml` and each new `dist`. The homepage reads `apps.yaml` on the next request. A failed build leaves the previous files in place.
+
+To deploy only after CI passes, or when the forge cannot call the server, the pipeline posts the commit instead:
+
+```bash
+curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
+  -H "Authorization: Bearer $DEPLOY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"sha\":\"$SHA\"}"
+```
+
+`DEPLOY_URL` is the public origin, with no path. Woodpecker secrets are `deploy_token` and `deploy_url`. GitHub Actions and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Set `DEPLOY_POLL_INTERVAL` (for example `1m`) when nothing can call in. Leave `GIT_REMOTE` empty to keep serving the files already in the site directory.
+
+The admin page shows the latest deploy and can publish the branch tip. The webhook URL is on that page too. Paste `DEPLOY_WEBHOOK_SECRET` from `deploy/.env` into the forge.
 
 ## Set the files up by hand
 
-Copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Then copy that example to `deploy/.env`, set the public URL, site path, and bootstrap account, and set `COOKIE_SECURE=true` when the public URL is HTTPS. Run Compose from `deploy/` so that file supplies the image and the site path.
+Copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Then copy that example to `deploy/.env`, set the public URL, site path, and bootstrap account, and set `COOKIE_SECURE=true` when the public URL is HTTPS. Create `deploy/git-key` before starting Compose so that mount is a file. Run Compose from `deploy/` so that file supplies the image and the site path.

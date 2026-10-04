@@ -3,8 +3,8 @@ package api
 import (
 	"errors"
 
-	"github.com/jack-barr3tt/bouncer/internal/store"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jack-barr3tt/bouncer/internal/store"
 )
 
 func (s *Server) ListUsers(c fiber.Ctx) error {

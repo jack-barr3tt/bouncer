@@ -12,6 +12,27 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for DeployRunStatus.
+const (
+	Failed    DeployRunStatus = "failed"
+	Published DeployRunStatus = "published"
+	Running   DeployRunStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the DeployRunStatus enum.
+func (e DeployRunStatus) Valid() bool {
+	switch e {
+	case Failed:
+		return true
+	case Published:
+		return true
+	case Running:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionKind.
 const (
 	SessionKindTemporary SessionKind = "temporary"
@@ -122,6 +143,32 @@ type CreateUserRequest struct {
 	Username string `json:"username"`
 }
 
+// DeployRequest defines model for DeployRequest.
+type DeployRequest struct {
+	Sha *string `json:"sha,omitempty"`
+}
+
+// DeployRun defines model for DeployRun.
+type DeployRun struct {
+	FinishedAt *time.Time      `json:"finishedAt,omitempty"`
+	Log        string          `json:"log"`
+	Sha        string          `json:"sha"`
+	StartedAt  time.Time       `json:"startedAt"`
+	Status     DeployRunStatus `json:"status"`
+}
+
+// DeployRunStatus defines model for DeployRun.Status.
+type DeployRunStatus string
+
+// DeployStatus defines model for DeployStatus.
+type DeployStatus struct {
+	Branch     string     `json:"branch"`
+	Enabled    bool       `json:"enabled"`
+	Latest     *DeployRun `json:"latest,omitempty"`
+	Remote     string     `json:"remote"`
+	WebhookUrl string     `json:"webhookUrl"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Message string `json:"message"`
@@ -202,11 +249,20 @@ type UserList struct {
 // Id defines model for Id.
 type Id = openapi_types.UUID
 
+// GitHookJSONBody defines parameters for GitHook.
+type GitHookJSONBody = map[string]interface{}
+
 // CreateAccessCodeJSONRequestBody defines body for CreateAccessCode for application/json ContentType.
 type CreateAccessCodeJSONRequestBody = CreateAccessCodeRequest
 
 // RedeemAccessCodeJSONRequestBody defines body for RedeemAccessCode for application/json ContentType.
 type RedeemAccessCodeJSONRequestBody = RedeemRequest
+
+// TriggerDeployJSONRequestBody defines body for TriggerDeploy for application/json ContentType.
+type TriggerDeployJSONRequestBody = DeployRequest
+
+// GitHookJSONRequestBody defines body for GitHook for application/json ContentType.
+type GitHookJSONRequestBody = GitHookJSONBody
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
@@ -243,6 +299,18 @@ type ServerInterface interface {
 
 	// (GET /api/access/stream)
 	AccessStream(c fiber.Ctx) error
+
+	// (GET /api/deploy)
+	GetDeploy(c fiber.Ctx) error
+
+	// (POST /api/deploy)
+	TriggerDeploy(c fiber.Ctx) error
+
+	// (POST /api/deploy/run)
+	RunDeploy(c fiber.Ctx) error
+
+	// (POST /api/hooks/git)
+	GitHook(c fiber.Ctx) error
 
 	// (POST /api/login)
 	Login(c fiber.Ctx) error
@@ -424,6 +492,78 @@ func (siw *ServerInterfaceWrapper) AccessStream(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.AccessStream(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetDeploy operation middleware
+func (siw *ServerInterfaceWrapper) GetDeploy(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.GetDeploy(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// TriggerDeploy operation middleware
+func (siw *ServerInterfaceWrapper) TriggerDeploy(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.TriggerDeploy(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// RunDeploy operation middleware
+func (siw *ServerInterfaceWrapper) RunDeploy(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.RunDeploy(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GitHook operation middleware
+func (siw *ServerInterfaceWrapper) GitHook(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.GitHook(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -664,6 +804,14 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/api/access-codes/:id/accounts", wrapper.ListTemporaryAccounts)
 
 	router.Post(options.BaseURL+"/api/temporary-accounts/:id/revoke", wrapper.RevokeTemporaryAccount)
+
+	router.Post(options.BaseURL+"/api/hooks/git", wrapper.GitHook)
+
+	router.Get(options.BaseURL+"/api/deploy", wrapper.GetDeploy)
+
+	router.Post(options.BaseURL+"/api/deploy", wrapper.TriggerDeploy)
+
+	router.Post(options.BaseURL+"/api/deploy/run", wrapper.RunDeploy)
 
 	router.Get(options.BaseURL+"/api/access/stream", wrapper.AccessStream)
 

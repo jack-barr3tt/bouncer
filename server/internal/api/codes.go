@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jack-barr3tt/bouncer/internal/store"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jack-barr3tt/bouncer/internal/store"
 	"github.com/skip2/go-qrcode"
 )
 

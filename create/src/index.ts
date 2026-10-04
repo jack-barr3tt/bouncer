@@ -46,7 +46,7 @@ async function main(): Promise<void> {
     const sitePath = requirePath(values['site-path'] ?? (await prompt(rl, 'Site directory on the server', '/var/www/apps')))
     const dir = resolve(dirArg)
     const { wrote, skipped } = writeSite({ dir, ci, publicUrl, sitePath, assetsRoot: assetsRoot() })
-    printResult(dir, ci, wrote, skipped)
+    printResult(dir, ci, publicUrl, wrote, skipped)
   } finally {
     rl?.close()
   }
@@ -103,7 +103,7 @@ function missing(flag: string): never {
   process.exit(1)
 }
 
-function printResult(dir: string, ci: CiSystem, wrote: string[], skipped: string[]): void {
+function printResult(dir: string, ci: CiSystem, publicUrl: string, wrote: string[], skipped: string[]): void {
   console.log(`\nSite files in ${dir}`)
   if (wrote.length > 0) {
     console.log('Wrote:')
@@ -114,18 +114,17 @@ function printResult(dir: string, ci: CiSystem, wrote: string[], skipped: string
     for (const file of skipped) console.log(`  ${file}`)
   }
   console.log('\nOn the server, copy deploy/ into place, copy deploy/.env.example to deploy/.env, and set the bootstrap password.')
+  console.log('Put a read-only deploy key in deploy/git-key.')
   console.log('From that directory: docker compose up -d')
-  console.log('\nSecrets:')
+  console.log(`\nWebhook: ${publicUrl}/api/hooks/git`)
+  console.log('Set DEPLOY_WEBHOOK_SECRET in deploy/.env and paste that secret into the forge.')
+  console.log('\nCI secrets, when the pipeline should trigger the deploy:')
   if (ci === 'woodpecker') {
-    console.log('  deploy_ssh_key   raw private key')
-    console.log('  deploy_host')
-    console.log('  deploy_user')
-    console.log('  deploy_path       directory that receives the built apps')
+    console.log('  deploy_token')
+    console.log('  deploy_url     public URL with no path')
   } else {
-    console.log('  DEPLOY_SSH_KEY    base64 private key')
-    console.log('  DEPLOY_HOST')
-    console.log('  DEPLOY_USER')
-    console.log('  DEPLOY_PATH       directory that receives the built apps')
+    console.log('  DEPLOY_TOKEN')
+    console.log('  DEPLOY_URL      public URL with no path')
   }
 }
 

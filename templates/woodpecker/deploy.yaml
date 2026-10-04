@@ -7,26 +7,17 @@ concurrency:
   limit: 1
 
 steps:
-  - name: test-and-build
-    image: node:22-alpine
-    commands:
-      - apk add --no-cache git
-      - node --test scripts/*.test.mjs
-      - node scripts/ci-build.mjs
-
   - name: deploy
     image: alpine:3.20
-    depends_on:
-      - test-and-build
     environment:
-      SSH_KEY:
-        from_secret: deploy_ssh_key
-      DEPLOY_HOST:
-        from_secret: deploy_host
-      DEPLOY_USER:
-        from_secret: deploy_user
-      DEPLOY_PATH:
-        from_secret: deploy_path
+      DEPLOY_TOKEN:
+        from_secret: deploy_token
+      DEPLOY_URL:
+        from_secret: deploy_url
     commands:
-      - apk add --no-cache openssh-client tar
-      - sh scripts/ci-deploy.sh
+      - apk add --no-cache curl
+      - |
+        curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
+          -H "Authorization: Bearer $DEPLOY_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"sha\":\"$CI_COMMIT_SHA\"}"

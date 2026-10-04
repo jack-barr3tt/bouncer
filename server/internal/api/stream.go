@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jack-barr3tt/bouncer/internal/access"
 	"github.com/gofiber/fiber/v3"
+	"github.com/jack-barr3tt/bouncer/internal/access"
 )
 
 func (s *Server) AccessStream(c fiber.Ctx) error {

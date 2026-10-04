@@ -2,16 +2,19 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   createCode,
   createUser,
+  getDeploy,
   listCodes,
   listTemporaryAccounts,
   listUsers,
   revokeCode,
   revokeTemporaryAccount,
+  runDeploy,
   setUserApps,
   updateUser,
   type AccessCode,
   type Account,
   type AppEntry,
+  type DeployState,
   type TemporaryAccount,
 } from './api.ts'
 
@@ -32,11 +35,13 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
   const [maxSignups, setMaxSignups] = useState(1)
   const [expires, setExpires] = useState(hoursFromNow(8))
   const [codeApps, setCodeApps] = useState<string[]>([])
+  const [deploy, setDeploy] = useState<DeployState | null>(null)
 
   async function refresh() {
-    const [userList, codeList] = await Promise.all([listUsers(), listCodes()])
+    const [userList, codeList, deployState] = await Promise.all([listUsers(), listCodes(), getDeploy()])
     setUsers(userList.users)
     setCodes(codeList.codes)
+    setDeploy(deployState)
     const grouped = await Promise.all(
       codeList.codes.map(async (code) => [code.id, (await listTemporaryAccounts(code.id)).accounts] as const),
     )
@@ -52,6 +57,33 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (deploy?.latest?.status !== 'running') return
+    const timer = window.setInterval(() => {
+      getDeploy()
+        .then(setDeploy)
+        .catch(() => undefined)
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [deploy?.latest?.status])
+
+  async function onDeploy() {
+    const before = deploy?.latest?.startedAt ?? ''
+    setError('')
+    try {
+      await runDeploy()
+      const deadline = Date.now() + 20000
+      while (Date.now() < deadline) {
+        const next = await getDeploy()
+        setDeploy(next)
+        if (next.latest && next.latest.startedAt !== before && next.latest.status !== 'running') return
+        await new Promise((resolve) => setTimeout(resolve, 400))
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Request failed.')
+    }
+  }
 
   async function run(action: () => Promise<void>) {
     setError('')
@@ -102,6 +134,46 @@ export default function Admin({ apps }: { apps: AppEntry[] }) {
             {error}
           </p>
         ) : null}
+
+        <section className="mt-10">
+          <h2 className="text-xl font-semibold">Deploy</h2>
+          {deploy == null ? null : deploy.enabled ? (
+            <div className="mt-4 rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="text-sm">
+                {deploy.remote} · {deploy.branch}
+              </p>
+              <p className="mt-2 font-mono text-sm">{deploy.webhookUrl}</p>
+              <div className="mt-3 flex gap-3 text-sm">
+                <button className="underline" type="button" onClick={() => void navigator.clipboard.writeText(deploy.webhookUrl)}>
+                  Copy webhook URL
+                </button>
+                <button
+                  className="underline disabled:text-stone-400"
+                  type="button"
+                  disabled={deploy.latest?.status === 'running'}
+                  onClick={() => void onDeploy()}
+                >
+                  Deploy now
+                </button>
+              </div>
+              {deploy.latest ? (
+                <div className="mt-4">
+                  <p className="text-sm">
+                    {deploy.latest.status} · {deploy.latest.sha.slice(0, 7)}
+                    {deploy.latest.finishedAt ? ` · ${new Date(deploy.latest.finishedAt).toLocaleString()}` : ''}
+                  </p>
+                  {deploy.latest.log ? (
+                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-stone-600">{deploy.latest.log}</pre>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-stone-600">No deploys yet.</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-stone-600">Git deploy is off until GIT_REMOTE is set.</p>
+          )}
+        </section>
 
         <section className="mt-10">
           <h2 className="text-xl font-semibold">Accounts</h2>

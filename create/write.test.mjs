@@ -26,11 +26,13 @@ test('github writes pipelines, scripts, and compose', () => {
   assert.ok(wrote.includes('scripts/ci-build.mjs'))
   assert.ok(wrote.includes('deploy/docker-compose.yml'))
   const workflow = readFileSync(join(dir, '.github', 'workflows', 'deploy.yaml'), 'utf8')
-  assert.match(workflow, /DEPLOY_SSH_KEY/)
+  assert.match(workflow, /DEPLOY_TOKEN/)
   const env = readFileSync(join(dir, 'deploy', '.env.example'), 'utf8')
   assert.match(env, /PUBLIC_BASE_URL=https:\/\/apps\.example\.com/)
   assert.match(env, /SITE_PATH=\/var\/www\/apps/)
   assert.match(env, /COOKIE_SECURE=true/)
+  assert.match(env, /GIT_REMOTE=/)
+  assert.match(env, /BUILDER_TOKEN=/)
 })
 
 test('an existing file is left in place', () => {
@@ -61,6 +63,7 @@ test('forgejo and the cli use the same layout', () => {
     { encoding: 'utf8' },
   )
   assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /api\/hooks\/git/)
   assert.match(readFileSync(join(dir, '.forgejo', 'workflows', 'pr.yaml'), 'utf8'), /pull_request/)
   assert.match(readFileSync(join(dir, 'deploy', '.env.example'), 'utf8'), /COOKIE_SECURE=false/)
 })
