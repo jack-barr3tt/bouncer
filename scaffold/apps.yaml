@@ -1,0 +1,6 @@
+apps:
+  - slug: hello
+    name: Hello
+    description: A sample app that reads the signed-in name and leaves when access is revoked.
+    path: /apps/hello/
+    icon: Hi

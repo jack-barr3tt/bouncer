@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bouncer.local/apps.schema.json",
+  "title": "App registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apps"],
+  "properties": {
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "name", "description", "path", "icon"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "not": { "enum": ["hub", "assets", "code"] },
+            "description": "Directory name under apps/. hub, assets, and code are reserved."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "description": "Display name shown on the homepage card."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "One sentence shown on the homepage card."
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Public path. Must be /apps/<slug>/."
+          },
+          "icon": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "description": "Short text or emoji shown in the card."
+          }
+        }
+      }
+    }
+  }
+}

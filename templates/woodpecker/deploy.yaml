@@ -1,0 +1,32 @@
+# Copy to .woodpecker/deploy.yaml in a site repository.
+when:
+  - event: push
+    branch: main
+
+concurrency:
+  limit: 1
+
+steps:
+  - name: test-and-build
+    image: node:22-alpine
+    commands:
+      - apk add --no-cache git
+      - node --test scripts/*.test.mjs
+      - node scripts/ci-build.mjs
+
+  - name: deploy
+    image: alpine:3.20
+    depends_on:
+      - test-and-build
+    environment:
+      SSH_KEY:
+        from_secret: deploy_ssh_key
+      DEPLOY_HOST:
+        from_secret: deploy_host
+      DEPLOY_USER:
+        from_secret: deploy_user
+      DEPLOY_PATH:
+        from_secret: deploy_path
+    commands:
+      - apk add --no-cache openssh-client tar
+      - sh scripts/ci-deploy.sh

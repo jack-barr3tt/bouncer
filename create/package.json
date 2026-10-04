@@ -1,0 +1,27 @@
+{
+  "name": "@jack-barr3tt/create-bouncer",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Write Bouncer site files: CI pipelines, build scripts, and the compose file that runs the image.",
+  "bin": {
+    "create-bouncer": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test write.test.mjs",
+    "prepublishOnly": "npm run build && node vendor.mjs"
+  },
+  "files": ["dist", "vendor"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jack-barr3tt/bouncer.git",
+    "directory": "create"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "~6.0.2"
+  }
+}

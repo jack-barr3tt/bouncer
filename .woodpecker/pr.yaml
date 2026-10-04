@@ -1,0 +1,27 @@
+when:
+  - event: pull_request
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: bouncer
+      POSTGRES_PASSWORD: bouncer
+      POSTGRES_DB: bouncer
+
+steps:
+  - name: test-server
+    image: golang:1.26-bookworm
+    environment:
+      TEST_DATABASE_URL: postgres://bouncer:bouncer@postgres:5432/bouncer?sslmode=disable
+    commands:
+      - cd server && go test ./...
+
+  - name: lint-hub
+    image: node:22-alpine
+    commands:
+      - (cd client && npm ci && npm run build)
+      - (cd hub && npm ci && npm run lint)
+      - (cd scaffold/apps/hello && npm ci && npm run lint && npm run build)
+      - node --test templates/site/scripts/*.test.mjs
+      - (cd create && npm ci && npm test)

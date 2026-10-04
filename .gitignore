@@ -1,0 +1,7 @@
+node_modules/
+dist/
+create/vendor/
+*.local
+.DS_Store
+.env
+deploy/.env

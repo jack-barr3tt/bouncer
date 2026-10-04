@@ -1,0 +1,28 @@
+{
+  "name": "@jack-barr3tt/bouncer-client",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Identity and access hooks for an app served by Bouncer.",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jack-barr3tt/bouncer.git",
+    "directory": "client"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2"
+  }
+}

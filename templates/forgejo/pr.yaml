@@ -1,0 +1,20 @@
+# Copy to .forgejo/workflows/pr.yaml in a site repository.
+name: PR checks
+
+on:
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: docker
+    container: node:22-alpine
+    steps:
+      - run: apk add --no-cache git
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test and build changed apps
+        env:
+          EVENT_BEFORE: ${{ github.event.pull_request.base.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: node --test scripts/*.test.mjs && node scripts/ci-build.mjs

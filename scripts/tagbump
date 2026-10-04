@@ -1,0 +1,81 @@
+#!/bin/sh
+set -eu
+
+usage() {
+  echo "usage: tagbump patch|minor|major" >&2
+  exit 2
+}
+
+if [ "$#" -ne 1 ]; then
+  usage
+fi
+
+case "$1" in
+  patch|minor|major) part=$1 ;;
+  *) usage ;;
+esac
+
+cd "$(dirname "$0")/.."
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "working tree is dirty" >&2
+  exit 1
+fi
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$branch" != "main" ]; then
+  echo "tagbump runs on main" >&2
+  exit 1
+fi
+
+latest=$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+if [ -z "$latest" ]; then
+  echo "no release tags yet; counting from v0.0.0"
+  latest=v0.0.0
+fi
+
+version=${latest#v}
+major=${version%%.*}
+rest=${version#*.}
+minor=${rest%%.*}
+patch=${rest#*.}
+
+case "$part" in
+  major)
+    major=$((major + 1))
+    minor=0
+    patch=0
+    ;;
+  minor)
+    minor=$((minor + 1))
+    patch=0
+    ;;
+  patch)
+    patch=$((patch + 1))
+    ;;
+esac
+
+next_version="${major}.${minor}.${patch}"
+next="v${next_version}"
+
+if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
+  echo "tag ${next} already exists" >&2
+  exit 1
+fi
+
+changed=0
+for dir in client create; do
+  current=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).version)' "$dir/package.json")
+  if [ "$current" != "$next_version" ]; then
+    npm version "$next_version" --no-git-tag-version --prefix "$dir"
+    git add "$dir/package.json" "$dir/package-lock.json"
+    changed=1
+  fi
+done
+if [ "$changed" -eq 1 ]; then
+  git commit -m "Release ${next}"
+fi
+
+git tag -a "$next" -m "$next"
+echo "$next"
+echo "push with: git push origin main ${next}"

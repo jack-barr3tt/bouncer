@@ -1,0 +1,474 @@
+openapi: 3.0.3
+info:
+  title: Apps auth
+  version: 0.1.0
+  description: Shared sign-in for the personal app site.
+paths:
+  /api/login:
+    post:
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed in. Sets the session cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+  /api/logout:
+    post:
+      operationId: logout
+      responses:
+        "204":
+          description: Signed out. Clears the session cookie.
+  /api/session:
+    get:
+      operationId: getSession
+      responses:
+        "200":
+          description: The current session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/access-codes/redeem:
+    post:
+      operationId: redeemAccessCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemRequest"
+      responses:
+        "200":
+          description: Temporary account created or resumed. Sets the session cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+  /api/users:
+    get:
+      operationId: listUsers
+      responses:
+        "200":
+          description: Accounts an admin can manage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: Created. New accounts are regular users with no apps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /api/users/{id}:
+    patch:
+      operationId: updateUser
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/users/{id}/apps:
+    put:
+      operationId: setUserApps
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppListRequest"
+      responses:
+        "200":
+          description: Replaced app list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/access-codes:
+    get:
+      operationId: listAccessCodes
+      responses:
+        "200":
+          description: Access codes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessCodeList"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createAccessCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccessCodeRequest"
+      responses:
+        "201":
+          description: Created access code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessCode"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/access-codes/{id}/revoke:
+    post:
+      operationId: revokeAccessCode
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Code revoked. Existing temporary accounts stay until they are revoked or the code expires.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessCode"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/access-codes/{id}/qr:
+    get:
+      operationId: getAccessCodeQR
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: PNG QR code of the join URL.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/access-codes/{id}/accounts:
+    get:
+      operationId: listTemporaryAccounts
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Temporary accounts created from this code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemporaryAccountList"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/temporary-accounts/{id}/revoke:
+    post:
+      operationId: revokeTemporaryAccount
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Temporary account revoked and its sessions deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/access/stream:
+    get:
+      operationId: accessStream
+      responses:
+        "200":
+          description: |
+            Server-sent events for the current session.
+            Event `access` has data `{"apps":["slug"]}`.
+            Event `session_ended` has data `{}`.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Error:
+      description: Request failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        fingerprint:
+          type: string
+    RedeemRequest:
+      type: object
+      required: [code, nickname, fingerprint]
+      properties:
+        code:
+          type: string
+        nickname:
+          type: string
+        fingerprint:
+          type: string
+    Session:
+      type: object
+      required: [kind, apps, expiresAt]
+      properties:
+        kind:
+          type: string
+          enum: [user, temporary]
+        username:
+          type: string
+        nickname:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        apps:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+    User:
+      type: object
+      required: [id, username, role, disabled, apps]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        disabled:
+          type: boolean
+        apps:
+          type: array
+          items:
+            type: string
+    UserList:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+    CreateUserRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    UpdateUserRequest:
+      type: object
+      properties:
+        password:
+          type: string
+        disabled:
+          type: boolean
+        role:
+          type: string
+          enum: [admin, user]
+    AppListRequest:
+      type: object
+      required: [slugs]
+      properties:
+        slugs:
+          type: array
+          items:
+            type: string
+    AccessCode:
+      type: object
+      required: [id, code, label, url, expiresAt, maxSignups, signupCount, apps, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        label:
+          type: string
+        url:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        maxSignups:
+          type: integer
+        signupCount:
+          type: integer
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+        apps:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+    AccessCodeList:
+      type: object
+      required: [codes]
+      properties:
+        codes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccessCode"
+    CreateAccessCodeRequest:
+      type: object
+      required: [appSlugs, expiresAt, maxSignups]
+      properties:
+        label:
+          type: string
+        appSlugs:
+          type: array
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+        maxSignups:
+          type: integer
+    TemporaryAccount:
+      type: object
+      required: [id, nickname, createdIp, lastIp, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        createdIp:
+          type: string
+        lastIp:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+    TemporaryAccountList:
+      type: object
+      required: [accounts]
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemporaryAccount"

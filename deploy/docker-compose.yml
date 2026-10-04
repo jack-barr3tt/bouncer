@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: bouncer
+      POSTGRES_PASSWORD: bouncer
+      POSTGRES_DB: bouncer
+    volumes:
+      - bouncer-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  bouncer:
+    image: ${REGISTRY}/bouncer:${IMAGE_TAG}
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://bouncer:bouncer@postgres:5432/bouncer?sslmode=disable
+      SITE_ROOT: /site
+      HUB_DIR: /opt/bouncer/hub
+      LISTEN_ADDR: ":8080"
+    volumes:
+      - ${SITE_PATH}:/site
+    restart: unless-stopped
+
+volumes:
+  bouncer-db:

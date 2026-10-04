@@ -1,0 +1,11 @@
+# Copy to .woodpecker/pr.yaml in a site repository.
+when:
+  - event: pull_request
+
+steps:
+  - name: test-and-build
+    image: node:22-alpine
+    commands:
+      - apk add --no-cache git
+      - node --test scripts/*.test.mjs
+      - node scripts/ci-build.mjs
