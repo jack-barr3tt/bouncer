@@ -229,12 +229,15 @@ type RedeemRequest struct {
 
 // Session defines model for Session.
 type Session struct {
-	Apps      []string     `json:"apps"`
-	ExpiresAt time.Time    `json:"expiresAt"`
-	Kind      SessionKind  `json:"kind"`
-	Nickname  *string      `json:"nickname,omitempty"`
-	Role      *SessionRole `json:"role,omitempty"`
-	Username  *string      `json:"username,omitempty"`
+	Apps      []string  `json:"apps"`
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Hub Public URL of the homepage.
+	Hub      string       `json:"hub"`
+	Kind     SessionKind  `json:"kind"`
+	Nickname *string      `json:"nickname,omitempty"`
+	Role     *SessionRole `json:"role,omitempty"`
+	Username *string      `json:"username,omitempty"`
 }
 
 // SessionKind defines model for Session.Kind.

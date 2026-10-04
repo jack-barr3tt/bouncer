@@ -3,6 +3,7 @@ package site
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -85,6 +86,16 @@ func (s *Site) Apps() ([]App, error) {
 		if app.Path != want {
 			return nil, fmt.Errorf("apps[%d].path must be %q", i, want)
 		}
+		if app.Source != "" && app.Upstream != "" {
+			return nil, fmt.Errorf("apps[%d] cannot set both source and upstream", i)
+		}
+		if app.Upstream != "" {
+			clean, err := CleanUpstream(app.Upstream)
+			if err != nil {
+				return nil, fmt.Errorf("apps[%d].upstream: %w", i, err)
+			}
+			file.Apps[i].Upstream = clean
+		}
 		if app.Source == "" {
 			continue
 		}
@@ -95,6 +106,29 @@ func (s *Site) Apps() ([]App, error) {
 		file.Apps[i].Source = clean
 	}
 	return file.Apps, nil
+}
+
+func CleanUpstream(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.Opaque != "" {
+		return "", fmt.Errorf("%q must be an absolute http or https origin", raw)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("%q must be an absolute http or https origin", raw)
+	}
+	if parsed.User != nil {
+		return "", fmt.Errorf("%q must not include a username or password", raw)
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return "", fmt.Errorf("%q must not include a path", raw)
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("%q must not include a query or fragment", raw)
+	}
+	parsed.Path = ""
+	parsed.RawPath = ""
+	return parsed.String(), nil
 }
 
 func CleanSource(source string) (string, error) {
@@ -120,6 +154,19 @@ func CleanSource(source string) (string, error) {
 		}
 	}
 	return clean, nil
+}
+
+func (s *Site) Lookup(slug string) (App, bool, error) {
+	apps, err := s.Apps()
+	if err != nil {
+		return App{}, false, err
+	}
+	for _, app := range apps {
+		if app.Slug == slug {
+			return app, true, nil
+		}
+	}
+	return App{}, false, nil
 }
 
 func (s *Site) HasApp(slug string) (bool, error) {

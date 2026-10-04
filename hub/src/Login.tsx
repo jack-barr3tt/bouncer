@@ -3,11 +3,28 @@ import { useLogin, type Session } from './api/generated.ts'
 import { visitorId } from './fingerprint.ts'
 
 function safeNext(value: string | null, session: Session): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('://')) return '/'
-  if (session.role === 'admin') return value
-  const [prefix, slug] = value.split('/').filter(Boolean)
-  if (prefix !== 'apps' || !slug || !session.apps.includes(slug)) return '/'
-  return value
+  if (!value) return '/'
+  if (value.startsWith('/') && !value.startsWith('//')) {
+    if (session.role === 'admin') return value
+    const [prefix, slug] = value.split('/').filter(Boolean)
+    if (prefix !== 'apps' || !slug || !session.apps.includes(slug)) return '/'
+    return value
+  }
+  let url: URL
+  let hub: URL
+  try {
+    url = new URL(value)
+    hub = new URL(session.hub)
+  } catch {
+    return '/'
+  }
+  if (url.protocol !== hub.protocol || url.port !== hub.port) return '/'
+  const suffix = `.${hub.hostname}`
+  if (!url.hostname.endsWith(suffix)) return '/'
+  const slug = url.hostname.slice(0, -suffix.length)
+  if (!slug || slug.includes('.')) return '/'
+  if (session.role !== 'admin' && !session.apps.includes(slug)) return '/'
+  return url.toString()
 }
 
 export default function Login({ onSession }: { onSession: (session: Session) => void }) {

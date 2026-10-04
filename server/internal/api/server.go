@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -23,6 +24,7 @@ type Config struct {
 	SiteRoot       string
 	HubDir         string
 	PublicBaseURL  string
+	Routing        string
 	BcryptCost     int
 	TrustedProxies []string
 	CookieSecure   string
@@ -34,8 +36,10 @@ type Server struct {
 	site         *site.Site
 	broker       *access.Broker
 	publicBase   string
+	route        publicRoute
 	cookieSecure string
 	deploy       *deploy.Service
+	proxies      sync.Map
 }
 
 func NewApp(cfg Config) (*fiber.App, error) {
@@ -44,6 +48,10 @@ func NewApp(cfg Config) (*fiber.App, error) {
 		return nil, err
 	}
 	st, err := store.New(cfg.Pool, cfg.BcryptCost)
+	if err != nil {
+		return nil, err
+	}
+	route, err := parseRouting(cfg.PublicBaseURL, cfg.Routing)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +72,8 @@ func NewApp(cfg Config) (*fiber.App, error) {
 		store:        st,
 		site:         opened,
 		broker:       access.New(),
-		publicBase:   strings.TrimRight(cfg.PublicBaseURL, "/"),
+		publicBase:   route.base,
+		route:        route,
 		cookieSecure: strings.ToLower(strings.TrimSpace(cfg.CookieSecure)),
 		deploy:       cfg.Deploy,
 	}
@@ -110,7 +119,7 @@ func (s *Server) Login(c fiber.Ctx) error {
 	if err != nil {
 		return s.internal(c, err)
 	}
-	return c.JSON(sessionJSON(principal))
+	return c.JSON(s.sessionJSON(principal))
 }
 
 func (s *Server) Logout(c fiber.Ctx) error {
@@ -132,7 +141,7 @@ func (s *Server) GetSession(c fiber.Ctx) error {
 	if principal.TempID != nil {
 		_ = s.store.TouchTempIP(c.Context(), *principal.TempID, c.IP())
 	}
-	return c.JSON(sessionJSON(principal))
+	return c.JSON(s.sessionJSON(principal))
 }
 
 func (s *Server) require(c fiber.Ctx) (*store.Principal, error) {
@@ -170,6 +179,7 @@ func (s *Server) setCookie(c fiber.Ctx, token string, expires time.Time) {
 		Name:     cookieName,
 		Value:    token,
 		Path:     "/",
+		Domain:   s.cookieDomain(c),
 		Expires:  expires,
 		HTTPOnly: true,
 		Secure:   s.secureCookie(c),
@@ -182,6 +192,7 @@ func (s *Server) clearCookie(c fiber.Ctx) {
 		Name:     cookieName,
 		Value:    "",
 		Path:     "/",
+		Domain:   s.cookieDomain(c),
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HTTPOnly: true,
@@ -215,11 +226,12 @@ func writeError(c fiber.Ctx, status int, message string) error {
 	return errHandled
 }
 
-func sessionJSON(p *store.Principal) Session {
+func (s *Server) sessionJSON(p *store.Principal) Session {
 	out := Session{
 		Kind:      SessionKind(p.Kind),
 		Apps:      p.Apps,
 		ExpiresAt: p.ExpiresAt,
+		Hub:       s.publicBase,
 	}
 	if out.Apps == nil {
 		out.Apps = []string{}

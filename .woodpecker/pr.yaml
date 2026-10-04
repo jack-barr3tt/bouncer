@@ -20,7 +20,7 @@ steps:
   - name: lint-hub
     image: node:22-alpine
     commands:
-      - (cd client && npm ci && npm run build)
+      - (cd client && npm ci && npm test && npm run build)
       - (cd hub && npm ci && npm run lint)
       - (cd scaffold/apps/hello && npm ci && npm run lint && npm run build)
       - node --test templates/site/scripts/*.test.mjs scripts/*.test.mjs

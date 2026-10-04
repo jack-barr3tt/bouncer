@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -259,6 +260,122 @@ func TestDeployUnconfigured(t *testing.T) {
 	}
 }
 
+func TestProxyStripsTheAppPrefix(t *testing.T) {
+	var hits atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		if r.URL.Path != "/items" || r.URL.RawQuery != "x=1" {
+			t.Errorf("upstream path: %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+		if r.Host != "apps.example" {
+			t.Errorf("host: %s", r.Host)
+		}
+		if r.Header.Get("X-Forwarded-Host") != "apps.example" {
+			t.Errorf("forwarded host: %s", r.Header.Get("X-Forwarded-Host"))
+		}
+		if r.Header.Get("X-Forwarded-Prefix") != "/apps/notes" {
+			t.Errorf("prefix: %s", r.Header.Get("X-Forwarded-Prefix"))
+		}
+		_, _ = w.Write([]byte("proxied"))
+	}))
+	t.Cleanup(upstream.Close)
+	app := newConfiguredApp(t, configuredApp{registry: notesRegistry(upstream.URL)})
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+	created := postJSON(t, app, "/api/users", map[string]string{"username": "sam", "password": "password2"}, admin)
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create user: %d %s", created.StatusCode, readBody(created))
+	}
+	sam := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "sam", "password": "password2"}, ""))
+	denied := getHost(t, app, "/apps/notes/items?x=1", "apps.example", sam, false)
+	if denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("ungranted: %d %s", denied.StatusCode, readBody(denied))
+	}
+	if hits.Load() != 0 {
+		t.Fatalf("upstream was dialed without a grant: %d", hits.Load())
+	}
+	opened := getHost(t, app, "/apps/notes/items?x=1", "apps.example", admin, false)
+	if opened.StatusCode != http.StatusOK || readBody(opened) != "proxied" {
+		t.Fatalf("proxy: %d %s", opened.StatusCode, readBody(opened))
+	}
+	session := getHost(t, app, "/api/session", "apps.example", admin, false)
+	if session.StatusCode != http.StatusOK || hits.Load() != 1 {
+		t.Fatalf("api leaked to upstream: status %d hits %d", session.StatusCode, hits.Load())
+	}
+}
+
+func TestProxyReportsADeadUpstream(t *testing.T) {
+	app := newConfiguredApp(t, configuredApp{registry: notesRegistry("http://127.0.0.1:1")})
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+	res := getHost(t, app, "/apps/notes/", "apps.example", admin, true)
+	if res.StatusCode != http.StatusBadGateway {
+		t.Fatalf("dead upstream: %d %s", res.StatusCode, readBody(res))
+	}
+}
+
+func TestSubdomainRouting(t *testing.T) {
+	root := t.TempDir()
+	app := newConfiguredApp(t, configuredApp{
+		root:       root,
+		publicBase: "https://example.com",
+		routing:    "subdomain",
+	})
+	admin := cookie(t, postHost(t, app, "/api/login", "example.com", map[string]string{"username": "admin", "password": "password1"}))
+	opened := getHost(t, app, "/", "hello.example.com", admin, true)
+	if opened.StatusCode != http.StatusOK || readBody(opened) != "hello" {
+		t.Fatalf("subdomain app: %d %s", opened.StatusCode, readBody(opened))
+	}
+	asset := getHost(t, app, "/assets/app.js", "hello.example.com", admin, false)
+	if asset.StatusCode != http.StatusOK || readBody(asset) != "js" {
+		t.Fatalf("subdomain asset: %d %s", asset.StatusCode, readBody(asset))
+	}
+	local := getHost(t, app, "/apps/hello/", "localhost", admin, true)
+	if local.StatusCode != http.StatusOK || readBody(local) != "hello" {
+		t.Fatalf("localhost path: %d %s", local.StatusCode, readBody(local))
+	}
+	guest := getHost(t, app, "/today", "hello.example.com", "", true)
+	if guest.StatusCode != http.StatusFound || guest.Header.Get("Location") != "https://example.com/login?next=https%3A%2F%2Fhello.example.com%2Ftoday" {
+		t.Fatalf("login redirect: %d %s", guest.StatusCode, guest.Header.Get("Location"))
+	}
+	moved := getHost(t, app, "/apps/hello/items?x=1", "example.com", "", true)
+	if moved.StatusCode != http.StatusFound || moved.Header.Get("Location") != "https://hello.example.com/items?x=1" {
+		t.Fatalf("apex redirect: %d %s", moved.StatusCode, moved.Header.Get("Location"))
+	}
+	registry := getHost(t, app, "/apps.yaml", "example.com", "", false)
+	body := readBody(registry)
+	if registry.StatusCode != http.StatusOK || !strings.Contains(body, "https://hello.example.com/") {
+		t.Fatalf("served registry: %d %s", registry.StatusCode, body)
+	}
+	stored, err := os.ReadFile(filepath.Join(root, "apps.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(stored), "path: /apps/hello/") || strings.Contains(string(stored), "hello.example.com") {
+		t.Fatalf("disk registry changed: %s", stored)
+	}
+}
+
+func TestSessionCookieUsesThePublicDomain(t *testing.T) {
+	app := newConfiguredApp(t, configuredApp{publicBase: "https://example.com", routing: "subdomain"})
+	login := postHost(t, app, "/api/login", "example.com", map[string]string{"username": "admin", "password": "password1"})
+	if login.StatusCode != http.StatusOK {
+		t.Fatalf("login: %d %s", login.StatusCode, readBody(login))
+	}
+	set := strings.ToLower(strings.Join(login.Header.Values("Set-Cookie"), "; "))
+	if !strings.Contains(set, "domain=example.com") {
+		t.Fatalf("cookie: %s", set)
+	}
+	local := newConfiguredApp(t, configuredApp{publicBase: "https://example.com", routing: "subdomain"})
+	again := postHost(t, local, "/api/login", "localhost", map[string]string{"username": "admin", "password": "password1"})
+	localCookie := strings.ToLower(strings.Join(again.Header.Values("Set-Cookie"), "; "))
+	if strings.Contains(localCookie, "domain=") {
+		t.Fatalf("localhost cookie: %s", localCookie)
+	}
+}
+
+func notesRegistry(upstream string) string {
+	return "apps:\n  - slug: notes\n    name: Notes\n    description: Hi\n    path: /apps/notes/\n    icon: N\n    upstream: " + upstream + "\n"
+}
+
 func TestLastAdmin(t *testing.T) {
 	app := newApp(t)
 	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
@@ -275,7 +392,19 @@ func TestLastAdmin(t *testing.T) {
 	}
 }
 
+type configuredApp struct {
+	registry   string
+	publicBase string
+	routing    string
+	root       string
+}
+
 func newApp(t *testing.T) *fiber.App {
+	t.Helper()
+	return newConfiguredApp(t, configuredApp{})
+}
+
+func newConfiguredApp(t *testing.T, cfg configuredApp) *fiber.App {
 	t.Helper()
 	if pool == nil {
 		if os.Getenv("CI") != "" || os.Getenv("FORGEJO_ACTIONS") != "" {
@@ -294,15 +423,27 @@ func newApp(t *testing.T) *fiber.App {
 	if err := accounts.EnsureAdmin(ctx, "admin", "password1"); err != nil {
 		t.Fatal(err)
 	}
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "apps.yaml"), "apps:\n  - slug: hello\n    name: Hello\n    description: Hi\n    path: /apps/hello/\n    icon: Hi\n")
+	root := cfg.root
+	if root == "" {
+		root = t.TempDir()
+	}
+	registry := cfg.registry
+	if registry == "" {
+		registry = "apps:\n  - slug: hello\n    name: Hello\n    description: Hi\n    path: /apps/hello/\n    icon: Hi\n"
+	}
+	publicBase := cfg.publicBase
+	if publicBase == "" {
+		publicBase = "http://127.0.0.1:8080"
+	}
+	writeFile(t, filepath.Join(root, "apps.yaml"), registry)
 	writeFile(t, filepath.Join(root, "apps", "hub", "dist", "index.html"), "hub")
 	writeFile(t, filepath.Join(root, "apps", "hello", "dist", "index.html"), "hello")
 	writeFile(t, filepath.Join(root, "apps", "hello", "dist", "assets", "app.js"), "js")
 	app, err := api.NewApp(api.Config{
 		Pool:          pool,
 		SiteRoot:      root,
-		PublicBaseURL: "http://127.0.0.1:8080",
+		PublicBaseURL: publicBase,
+		Routing:       cfg.routing,
 		BcryptCost:    bcrypt.MinCost,
 		CookieSecure:  "false",
 	})
@@ -355,9 +496,33 @@ func sendJSON(t *testing.T, app *fiber.App, method, path string, body any, cooki
 	return res
 }
 
+func getHost(t *testing.T, app *fiber.App, path, host, cookieHeader string, document bool) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Host = host
+	return do(t, app, req, cookieHeader, document)
+}
+
+func postHost(t *testing.T, app *fiber.App, path, host string, body any) *http.Response {
+	t.Helper()
+	payload, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(payload))
+	req.Host = host
+	req.Header.Set("Content-Type", "application/json")
+	return do(t, app, req, "", false)
+}
+
 func get(t *testing.T, app *fiber.App, path, cookieHeader string, document bool) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
+	return do(t, app, req, cookieHeader, document)
+}
+
+func do(t *testing.T, app *fiber.App, req *http.Request, cookieHeader string, document bool) *http.Response {
+	t.Helper()
 	if cookieHeader != "" {
 		req.Header.Set("Cookie", cookieHeader)
 	}

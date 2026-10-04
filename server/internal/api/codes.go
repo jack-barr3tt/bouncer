@@ -65,7 +65,7 @@ func (s *Server) RedeemAccessCode(c fiber.Ctx) error {
 	if err != nil {
 		return s.internal(c, err)
 	}
-	return c.JSON(sessionJSON(principal))
+	return c.JSON(s.sessionJSON(principal))
 }
 
 func (s *Server) ListAccessCodes(c fiber.Ctx) error {

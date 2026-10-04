@@ -46,7 +46,13 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "Directory of the Vite app under apps/. A clone of one app is apps/<name>. An app inside a clone of many apps is apps/<name>/<app>. Omit when the app is the apps/<slug> directory."
+            "description": "Directory of the Vite app under apps/. A clone of one app is apps/<name>. An app inside a clone of many apps is apps/<name>/<app>. Omit when the app is the apps/<slug> directory. Cannot be combined with upstream."
+          },
+          "upstream": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Origin to proxy, such as http://127.0.0.1:3000. The process must already be listening. Omit to serve files. Cannot be combined with source."
           }
         }
       }

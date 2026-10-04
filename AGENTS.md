@@ -27,7 +27,9 @@ Schema changes go through numbered files in `server/db/migrations/`. After chang
 
 `SITE_ROOT` is the consumer directory. `HUB_DIR` is the built homepage. When `HUB_DIR` is unset and `SITE_ROOT/apps/hub` exists, the server uses that build. Otherwise the homepage files are `SITE_ROOT` itself.
 
-App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE_ROOT/apps/<slug>` otherwise. `/apps.yaml` is always read from `SITE_ROOT`. The server checks that file against the schema in `server/schema/apps.schema.json`.
+App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE_ROOT/apps/<slug>` otherwise. An app with `upstream` is proxied to that origin instead. `/apps.yaml` is always read from `SITE_ROOT`. The server checks that file against the schema in `server/schema/apps.schema.json`.
+
+`ROUTING=subdomain` serves each app at `<slug>.<host>` of `PUBLIC_BASE_URL`. The apex stays the homepage. Unset, `path`, or a localhost or IP public host keeps `/apps/<slug>/`. A wildcard DNS record and certificate have to cover one label under that host.
 
 An empty site receives `AGENTS.md`, `apps/AGENTS.md`, `apps.yaml`, and the Hello sample in `scaffold/apps/hello/` on startup, including a built `dist`. A site that already has `apps.yaml` is left alone. The schema stays in this repository. Apps depend on `@jack-barr3tt/bouncer-client` from npm.
 
@@ -60,7 +62,7 @@ docker compose up
 ## Checks
 
 ```bash
-cd client && npm ci && npm run build
+cd client && npm ci && npm test && npm run build
 cd create && npm ci && npm test
 node --test scripts/*.test.mjs templates/site/scripts/*.test.mjs
 cd server && go test ./...

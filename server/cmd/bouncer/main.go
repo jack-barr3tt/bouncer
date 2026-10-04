@@ -90,6 +90,7 @@ func main() {
 		SiteRoot:       root,
 		HubDir:         os.Getenv("HUB_DIR"),
 		PublicBaseURL:  base,
+		Routing:        os.Getenv("ROUTING"),
 		TrustedProxies: splitList(os.Getenv("TRUSTED_PROXIES")),
 		CookieSecure:   os.Getenv("COOKIE_SECURE"),
 		Deploy:         ships,
