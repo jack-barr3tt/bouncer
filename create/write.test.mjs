@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -33,6 +33,14 @@ test('github writes pipelines, scripts, and compose', () => {
   assert.match(env, /COOKIE_SECURE=true/)
   assert.match(env, /GIT_REMOTE=/)
   assert.match(env, /BUILDER_TOKEN=/)
+  assert.ok(wrote.includes('apps.yaml'))
+  assert.ok(wrote.includes('AGENTS.md'))
+  assert.ok(wrote.includes(join('apps', 'AGENTS.md')))
+  assert.ok(wrote.includes(join('apps', 'hello', 'package.json')))
+  assert.ok(wrote.includes(join('apps', 'hello', 'src', 'App.tsx')))
+  assert.equal(existsSync(join(dir, 'apps', 'hello', 'node_modules')), false)
+  assert.equal(existsSync(join(dir, 'apps', 'hello', 'dist')), false)
+  assert.match(readFileSync(join(dir, 'apps.yaml'), 'utf8'), /slug: hello/)
 })
 
 test('an existing file is left in place', () => {
@@ -42,6 +50,8 @@ test('an existing file is left in place', () => {
   const again = writeSite(options(dir, 'woodpecker'))
   assert.ok(again.skipped.includes('.woodpecker/deploy.yaml'))
   assert.ok(again.skipped.includes('.gitignore'))
+  assert.ok(again.skipped.includes('apps.yaml'))
+  assert.ok(again.skipped.includes(join('apps', 'hello')))
   assert.match(readFileSync(join(dir, '.gitignore'), 'utf8'), /^already\n/)
   assert.match(readFileSync(join(dir, '.gitignore'), 'utf8'), /deploy\/\.env/)
 })
@@ -66,6 +76,7 @@ test('forgejo and the cli use the same layout', () => {
   assert.match(result.stdout, /api\/hooks\/git/)
   assert.match(readFileSync(join(dir, '.forgejo', 'workflows', 'pr.yaml'), 'utf8'), /pull_request/)
   assert.match(readFileSync(join(dir, 'deploy', '.env.example'), 'utf8'), /COOKIE_SECURE=false/)
+  assert.match(readFileSync(join(dir, 'apps', 'hello', 'package.json'), 'utf8'), /"name": "hello"/)
 })
 
 test('the cli runs when invoked through a symlink', () => {

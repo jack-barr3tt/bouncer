@@ -2,7 +2,7 @@
   "name": "@jack-barr3tt/create-bouncer",
   "version": "0.3.1",
   "type": "module",
-  "description": "Write Bouncer site files: CI pipelines, build scripts, and the compose file that runs the image.",
+  "description": "Write Bouncer site files: CI pipelines, build scripts, the compose file that runs the image, and the Hello sample.",
   "bin": {
     "create-bouncer": "dist/index.js"
   },

@@ -51,7 +51,41 @@ export function writeSite(options: SetupOptions): { wrote: string[]; skipped: st
   writeEnv(options, wrote, skipped)
   writeKey(options, wrote, skipped)
   writeGitignore(options.dir, wrote, skipped)
+  copySample(options, wrote, skipped)
   return { wrote, skipped }
+}
+
+const sampleSkip = new Set(['node_modules', 'dist'])
+
+function copySample(options: SetupOptions, wrote: string[], skipped: string[]): void {
+  copyNew(options, join('scaffold', 'AGENTS.md'), 'AGENTS.md', wrote, skipped)
+  copyNew(options, join('scaffold', 'apps.AGENTS.md'), join('apps', 'AGENTS.md'), wrote, skipped)
+  copyNew(options, join('scaffold', 'apps.yaml'), 'apps.yaml', wrote, skipped)
+
+  const to = join('apps', 'hello')
+  const dest = join(options.dir, to)
+  if (existsSync(dest)) {
+    skipped.push(to)
+    return
+  }
+  copySampleFiles(join(options.assetsRoot, 'scaffold', 'apps', 'hello'), dest, to, wrote)
+}
+
+function copySampleFiles(src: string, dest: string, rel: string, wrote: string[]): void {
+  mkdirSync(dest, { recursive: true })
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    if (sampleSkip.has(entry.name)) continue
+    const from = join(src, entry.name)
+    const target = join(dest, entry.name)
+    const name = join(rel, entry.name)
+    if (entry.isDirectory()) {
+      copySampleFiles(from, target, name, wrote)
+      continue
+    }
+    if (!entry.isFile()) continue
+    copyFileSync(from, target)
+    wrote.push(name)
+  }
 }
 
 function copyNew(
