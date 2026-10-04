@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { ciSystems, writeSite, type CiSystem } from './write.js'
 
@@ -128,7 +128,7 @@ function printResult(dir: string, ci: CiSystem, publicUrl: string, wrote: string
   }
 }
 
-const isMain = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href
+const isMain = process.argv[1] !== undefined && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
 if (isMain) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error)
