@@ -28,6 +28,54 @@ func TestLoadSetsUnsetVariables(t *testing.T) {
 	}
 }
 
+func TestLoadFindsEnvInAParentDirectory(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".env"), []byte("BOUNCER_DOTENV_PARENT=from-parent\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(root, "server")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(sub)
+	t.Cleanup(func() { _ = os.Unsetenv("BOUNCER_DOTENV_PARENT") })
+	if err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	if got := os.Getenv("BOUNCER_DOTENV_PARENT"); got != "from-parent" {
+		t.Fatalf("BOUNCER_DOTENV_PARENT=%q", got)
+	}
+}
+
+func TestLoadResolvesSiteRootFromTheEnvFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".env"), []byte("SITE_ROOT=../apps\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(root, "server")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(sub)
+	t.Cleanup(func() { _ = os.Unsetenv("SITE_ROOT") })
+	if err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.Abs(filepath.Join(root, "../apps"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := os.Getenv("SITE_ROOT"); got != want {
+		t.Fatalf("SITE_ROOT=%q, want %q", got, want)
+	}
+}
+
 func TestLoadKeepsExistingVariables(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("BOUNCER_DOTENV_KEEP=from-file\n"), 0o644); err != nil {

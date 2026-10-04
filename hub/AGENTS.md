@@ -6,7 +6,7 @@ The root [AGENTS.md](../AGENTS.md) still applies. Do not turn this app into a sh
 
 ## Registry
 
-`vite.config.ts` reads `../apps.yaml` when that file exists, otherwise `../scaffold/apps.yaml`. Set `APPS_REGISTRY` to point at a consumer site, for example `../apps/apps.yaml`.
+`vite.config.ts` reads `SITE_ROOT/apps.yaml` when `SITE_ROOT` is set, then `../apps.yaml`, otherwise `../scaffold/apps.yaml`. Set `APPS_REGISTRY` to point at a different file.
 
 - `vite dev` serves that file at `/apps.yaml`.
 - `vite build` copies it into `dist/apps.yaml`.

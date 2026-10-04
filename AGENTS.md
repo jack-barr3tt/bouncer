@@ -19,7 +19,7 @@ deploy/          Compose for running the published image with a site mounted
 .woodpecker/     Pull request checks, main checks, and release
 ```
 
-The OpenAPI file is `server/openapi.yaml`. Regenerate the server with `oapi-codegen` (`server/oapi-codegen.yaml`). Do not edit `server/internal/api/gen.go`. Regenerate the hub client with `npm run generate` in `hub/` (`hub/orval.config.ts`). Do not edit `hub/src/api/generated.ts`.
+The OpenAPI file is `server/openapi.yaml`. `make generate` rewrites the server from it (`server/oapi-codegen.yaml`) and rewrites the hub client (`hub/orval.config.ts`). Do not edit `server/internal/api/gen.go` or `hub/src/api/generated.ts`.
 
 Schema changes go through numbered files in `server/db/migrations/`. After changing them, run `make schema` to refresh `server/db/schema.sql`. That file is the applied-schema dump. Do not edit it by hand, and do not apply it as a migration.
 
@@ -51,21 +51,8 @@ Bouncer fetches the site repository when `GIT_REMOTE` is set and no app sets `so
 
 ## Local run
 
-Copy `.env.example` to `.env`. The server and the migrate command read that file from the working directory. A variable that is already set is left as it is. A missing file is left alone, which is how Compose and CI pass the same settings in.
-
-```bash
-docker compose up
-```
-
-`SITE_ROOT` defaults to `../apps`. Postgres is published on port 5436.
+How to run this repository is in [DEV.md](DEV.md). From the repository root, `make dev` starts Postgres and a tmux session for this checkout. Compose can also start the published server image, which does not include changes in this checkout.
 
 ## Checks
 
-```bash
-cd client && npm ci && npm test && npm run build
-cd create && npm ci && npm test
-node --test scripts/*.test.mjs templates/site/scripts/*.test.mjs
-cd server && go test ./...
-cd hub && npm ci && npm run lint && npm run build
-cd scaffold/apps/hello && npm ci && npm run lint && npm run build
-```
+`make check` runs the client, create, script, server, hub, and Hello checks. Server tests that use Postgres need `TEST_DATABASE_URL`. They truncate that database.
