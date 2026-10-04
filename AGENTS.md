@@ -55,7 +55,7 @@ SITE_ROOT=../apps AUTH_BOOTSTRAP_USERNAME=admin AUTH_BOOTSTRAP_PASSWORD=change-m
 
 Pull requests and pushes to `main` run the server tests, hub lint, the site script tests, and the create-bouncer tests. Pull requests also build the client and Hello. `scripts/tagbump patch` (or `minor`, or `major`) tags the next version on a clean `main`. With no tags yet, the count starts at `v0.0.0`, so the first `v0.1.0` is `scripts/tagbump minor`.
 
-Push the tag. Woodpecker publishes `ghcr.io/jack-barr3tt/bouncer:<version>`, `@jack-barr3tt/bouncer-client`, and `@jack-barr3tt/create-bouncer` at that version. The site repository deploys its apps.
+Push the tag. Woodpecker publishes `ghcr.io/jack-barr3tt/bouncer:<version>` and stages `@jack-barr3tt/bouncer-client` and `@jack-barr3tt/create-bouncer`. Approve each staged package on npmjs.com, or with `npm stage approve <id>`. Approval asks for a one-time code. The site repository deploys its apps.
 
 Secrets, set in Woodpecker:
 
@@ -63,7 +63,7 @@ Secrets, set in Woodpecker:
 | --- | --- |
 | `registry_user` | GHCR user |
 | `registry_token` | GHCR token |
-| `npm_token` | npm token that can publish the client and `create-bouncer` |
+| `npm_token` | npm token that can stage the client and `create-bouncer` |
 
 `deploy/docker-compose.yml` runs the published image. `deploy/.env` comes from `deploy/.env.example`. `SITE_PATH` in that file is the consumer site directory mounted into the container.
 

@@ -22,7 +22,7 @@ Apps that need the signed-in name depend on the published client:
 npm install @jack-barr3tt/bouncer-client
 ```
 
-`scripts/tagbump` cuts the next `vX.Y.Z` tag. Pushing that tag builds `client/src` and publishes `dist/`. Until `0.1.0` is on npm, build it and link it locally: `cd client && npm ci && npm run build && npm link`, then `npm link @jack-barr3tt/bouncer-client` inside the app.
+`scripts/tagbump` cuts the next `vX.Y.Z` tag. Pushing that tag builds `client/src` and stages `dist/` on npm. Approve the staged package before it can be installed. Until `0.1.0` is on npm, build it and link it locally: `cd client && npm ci && npm run build && npm link`, then `npm link @jack-barr3tt/bouncer-client` inside the app.
 
 `currentIdentity()` returns `{ kind: 'user', username }` or `{ kind: 'temporary', nickname }`. `watchAccess(slug)` sends the browser home when that app's access is removed.
 
@@ -42,6 +42,6 @@ To set the same files up by hand, copy `templates/github/`, `templates/woodpecke
 
 ## Release
 
-A tag `vX.Y.Z` is built by Woodpecker and published as `ghcr.io/jack-barr3tt/bouncer:X.Y.Z`, `@jack-barr3tt/bouncer-client@X.Y.Z`, and `@jack-barr3tt/create-bouncer@X.Y.Z`. See [AGENTS.md](AGENTS.md) for `scripts/tagbump` and the secrets.
+A tag `vX.Y.Z` is built by Woodpecker and published as `ghcr.io/jack-barr3tt/bouncer:X.Y.Z`. The same run stages `@jack-barr3tt/bouncer-client` and `@jack-barr3tt/create-bouncer` for approval on npm. See [AGENTS.md](AGENTS.md) for `scripts/tagbump` and the secrets.
 
 `deploy/docker-compose.yml` runs that image with a site mounted. The site repository deploys the apps.
