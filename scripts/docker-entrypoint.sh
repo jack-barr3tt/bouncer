@@ -28,6 +28,12 @@ if [ ! -e "$SITE_ROOT/apps.yaml" ]; then
   fi
 fi
 
+# create-bouncer writes Hello source without a build. Use the image's dist.
+if [ -e "$SITE_ROOT/apps/hello/package.json" ] && [ ! -e "$SITE_ROOT/apps/hello/dist/index.html" ] && [ -d "$SCAFFOLD/apps/hello/dist" ]; then
+  mkdir -p "$SITE_ROOT/apps/hello/dist"
+  cp -a "$SCAFFOLD/apps/hello/dist/." "$SITE_ROOT/apps/hello/dist/"
+fi
+
 if [ "${1:-}" = "init" ]; then
   exit 0
 fi

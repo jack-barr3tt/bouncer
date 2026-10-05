@@ -8,13 +8,13 @@ import { ciSystems, writeSite, type CiSystem } from './write.js'
 
 const usage = `Usage: create-bouncer [directory] --ci github|woodpecker|forgejo --public-url URL --site-path PATH
 
-Writes the site CI pipelines, the build and deploy scripts, and deploy/docker-compose.yml.
+Writes the site CI pipelines, the build and deploy scripts, deploy/docker-compose.yml, and the Hello sample.
 Prompts for anything left out when stdin is a terminal.`
 
 function assetsRoot(): string {
   const here = dirname(fileURLToPath(import.meta.url))
   const vendored = join(here, '..', 'vendor')
-  if (existsSync(join(vendored, 'templates'))) return vendored
+  if (existsSync(join(vendored, 'templates')) && existsSync(join(vendored, 'scaffold', 'apps.yaml'))) return vendored
   return join(here, '..', '..')
 }
 

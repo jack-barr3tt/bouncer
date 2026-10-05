@@ -14,7 +14,7 @@ Initialize a Bouncer project:
 npx @jack-barr3tt/create-bouncer
 ```
 
-It asks which CI to use (GitHub Actions, Woodpecker, or Forgejo), the public URL, and the absolute path of this directory on the machine that will run Bouncer. It writes the pipelines, the build and deploy scripts, and `deploy/docker-compose.yml` with `deploy/.env.example`.
+It asks which CI to use (GitHub Actions, Woodpecker, or Forgejo), the public URL, and the absolute path of this directory on the machine that will run Bouncer. It writes the pipelines, the build and deploy scripts, `deploy/docker-compose.yml` with `deploy/.env.example`, and the Hello sample at `apps/hello` with its `apps.yaml` entry.
 
 Copy `deploy/.env.example` to `deploy/.env`. Set `AUTH_BOOTSTRAP_USERNAME` and `AUTH_BOOTSTRAP_PASSWORD`. From `deploy/`:
 
@@ -22,7 +22,7 @@ Copy `deploy/.env.example` to `deploy/.env`. Set `AUTH_BOOTSTRAP_USERNAME` and `
 docker compose up -d
 ```
 
-Open the public URL and sign in with that account. The first start of an empty site writes `apps.yaml` and a Hello sample that is already built, so it is on the homepage immediately. Change the bootstrap password before anyone else can reach the server.
+Open the public URL and sign in with that account. The first start copies a built Hello into `apps/hello/dist` when that build is missing, so the sample is on the homepage immediately. Change the bootstrap password before anyone else can reach the server.
 
 Compose publishes port 8080 on `127.0.0.1`. Put TLS and your public hostname on a proxy in front of that port. The images are `ghcr.io/jack-barr3tt/bouncer` and `ghcr.io/jack-barr3tt/bouncer-builder`. `IMAGE_TAG` selects the tag for both, and defaults to `latest`. `SITE_PATH` is the site directory mounted into the server. The builder is not published on a port.
 

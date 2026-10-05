@@ -12,7 +12,7 @@ hub/             Homepage, served at /
 client/          @jack-barr3tt/bouncer-client. Identity and live revoke
 scaffold/        Files written into an empty site on startup
 templates/       CI pipelines and site scripts a site copies into place
-create/          @jack-barr3tt/create-bouncer. Writes those files into a site
+create/          @jack-barr3tt/create-bouncer. Writes CI files and the Hello sample into a site
 server/schema/   JSON Schema for apps.yaml, embedded in the server
 compose.yaml     Local Postgres and Bouncer, mounting a site
 deploy/          Compose for running the published image with a site mounted
@@ -31,7 +31,7 @@ App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE
 
 `ROUTING=subdomain` serves each app at `<slug>.<host>` of `PUBLIC_BASE_URL`. The apex stays the homepage. Unset, `path`, or a localhost or IP public host keeps `/apps/<slug>/`. A wildcard DNS record and certificate have to cover one label under that host.
 
-An empty site receives `AGENTS.md`, `apps/AGENTS.md`, `apps.yaml`, and the Hello sample in `scaffold/apps/hello/` on startup, including a built `dist`. A site that already has `apps.yaml` is left alone. The schema stays in this repository. Apps depend on `@jack-barr3tt/bouncer-client` from npm.
+`create-bouncer` writes `AGENTS.md`, `apps/AGENTS.md`, `apps.yaml`, and the Hello sample in `scaffold/apps/hello/`. An empty site that still has no `apps.yaml` receives those files on startup, including a built `dist`. A site that already has `apps.yaml` is left alone. When Hello is present and `dist` is missing, startup copies the image's build. The schema stays in this repository. Apps depend on `@jack-barr3tt/bouncer-client` from npm.
 
 ## Auth
 
@@ -43,7 +43,7 @@ The session cookie is `bouncer_session`. Apps learn the signed-in name from `@ja
 
 ## CI templates
 
-GitHub Actions, Woodpecker, and Forgejo read pipelines from the repository they build. They cannot import a pipeline from this one. The recommended setup is `npx @jack-barr3tt/create-bouncer`. It asks which CI to use and writes the pipelines, `scripts/ci-build.mjs`, and `deploy/docker-compose.yml`.
+GitHub Actions, Woodpecker, and Forgejo read pipelines from the repository they build. They cannot import a pipeline from this one. The recommended setup is `npx @jack-barr3tt/create-bouncer`. It asks which CI to use and writes the pipelines, `scripts/ci-build.mjs`, `deploy/docker-compose.yml`, and the Hello sample.
 
 To do that by hand, copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Run Compose from the `deploy/` directory so the env file fills in the image and the site path.
 
