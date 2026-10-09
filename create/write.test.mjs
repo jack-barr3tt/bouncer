@@ -14,6 +14,7 @@ function options(dir, ci) {
     ci,
     publicUrl: 'https://apps.example.com',
     sitePath: '/var/www/apps',
+    port: '8080',
     assetsRoot,
   }
 }
@@ -30,6 +31,7 @@ test('github writes pipelines, scripts, and compose', () => {
   const env = readFileSync(join(dir, 'deploy', '.env.example'), 'utf8')
   assert.match(env, /PUBLIC_BASE_URL=https:\/\/apps\.example\.com/)
   assert.match(env, /SITE_PATH=\/var\/www\/apps/)
+  assert.match(env, /PORT=8080/)
   assert.match(env, /COOKIE_SECURE=true/)
   assert.match(env, /GIT_REMOTE=/)
   assert.match(env, /BUILDER_TOKEN=/)
@@ -69,13 +71,25 @@ test('forgejo and the cli use the same layout', () => {
       'http://127.0.0.1:8080',
       '--site-path',
       '/srv/apps',
+      '--port',
+      '9090',
     ],
     { encoding: 'utf8' },
   )
   assert.equal(result.status, 0, result.stderr)
-  assert.match(result.stdout, /api\/hooks\/git/)
+  assert.match(result.stdout, /Clone this repository to \/srv\/apps on the server/)
+  assert.match(result.stdout, /cd \/srv\/apps\/deploy/)
+  assert.match(result.stdout, /127\.0\.0\.1:9090/)
+  assert.match(result.stdout, /cp \.env\.example \.env/)
+  assert.match(result.stdout, /http:\/\/127\.0\.0\.1:8080\/api\/hooks\/git/)
+  assert.match(result.stdout, /DEPLOY_WEBHOOK_SECRET in deploy\/\.env/)
+  assert.match(result.stdout, /Forgejo repository secrets/)
+  assert.match(result.stdout, /DEPLOY_URL\s+http:\/\/127\.0\.0\.1:8080/)
+  assert.doesNotMatch(result.stdout, /copy deploy\/ into place/)
+  assert.doesNotMatch(result.stdout, /into the forge/)
   assert.match(readFileSync(join(dir, '.forgejo', 'workflows', 'pr.yaml'), 'utf8'), /pull_request/)
   assert.match(readFileSync(join(dir, 'deploy', '.env.example'), 'utf8'), /COOKIE_SECURE=false/)
+  assert.match(readFileSync(join(dir, 'deploy', '.env.example'), 'utf8'), /PORT=9090/)
   assert.match(readFileSync(join(dir, 'apps', 'hello', 'package.json'), 'utf8'), /"name": "hello"/)
 })
 
