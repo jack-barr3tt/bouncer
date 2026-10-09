@@ -49,7 +49,7 @@ A new account can open nothing until an admin turns apps on. Admins can open eve
 
 People sign in on the homepage with a username and password. An admin creates those accounts.
 
-An access code is an invitation. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account for that browser. The same browser resumes the same temporary account. Revoking the code stops new signups. Revoking the temporary account signs that person out.
+An access code is an invitation. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account for that browser. The same browser resumes the same temporary account. When that account can open only one app, the homepage sends them straight to it. Revoking the code stops new signups. Revoking the temporary account signs that person out.
 
 ## In an app
 
