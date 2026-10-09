@@ -3,6 +3,7 @@
   "version": "0.3.2",
   "type": "module",
   "description": "Identity and access hooks for an app served by Bouncer.",
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-strip-types --test leave.test.ts",

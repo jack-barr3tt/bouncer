@@ -3,6 +3,7 @@
   "version": "0.3.2",
   "type": "module",
   "description": "Write Bouncer site files: CI pipelines, build scripts, the compose file that runs the image, and the Hello sample.",
+  "license": "MIT",
   "bin": {
     "create-bouncer": "dist/index.js"
   },
