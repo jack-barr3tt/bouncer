@@ -13,7 +13,7 @@ The root [AGENTS.md](../AGENTS.md) still applies. Do not turn this app into a sh
 
 The running server serves `/apps.yaml` from the mounted site, so a consumer's registry wins over the copy baked into this build.
 
-The page lists each entry the signed-in account is allowed to open. Apps without a grant are omitted. A production build marks an allowed app "Unavailable" when its URL does not respond successfully. `vite dev` does not perform that check.
+The page lists each entry the signed-in account is allowed to open. Apps without a grant are omitted. A temporary account that can open only one app is sent straight to that app. A production build marks an allowed app "Unavailable" when its URL does not respond successfully. `vite dev` does not perform that check.
 
 Sign-in, join (`/code/<code>`), and admin live in this app. `vite dev` proxies `/api` and `/apps` to `http://127.0.0.1:8080`. The hub listens to the access stream and removes a card when that grant disappears.
 

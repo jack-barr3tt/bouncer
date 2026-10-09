@@ -32,18 +32,26 @@ async function checkApp(path: string, parent: AbortSignal): Promise<boolean | nu
 export default function Home({
   session,
   apps,
+  appsReady,
   onSession,
 }: {
   session: Session | null
   apps: AppEntry[]
+  appsReady: boolean
   onSession: (session: Session | null) => void
 }) {
   const [availability, setAvailability] = useState<Record<string, Availability>>({})
   const logout = useLogout()
   const visible = session ? apps.filter((app) => session.apps.includes(app.slug)) : []
+  const sole = session?.kind === 'temporary' && appsReady && visible.length === 1 ? visible[0].path : ''
 
   useEffect(() => {
-    if (!session || !import.meta.env.PROD) return
+    if (!sole) return
+    window.location.replace(sole)
+  }, [sole])
+
+  useEffect(() => {
+    if (!session || !import.meta.env.PROD || sole) return
     const controller = new AbortController()
     const granted = apps.filter((app) => session.apps.includes(app.slug))
     for (const app of granted) {
@@ -53,12 +61,16 @@ export default function Home({
       })
     }
     return () => controller.abort()
-  }, [session, apps])
+  }, [session, apps, sole])
 
   async function signOut() {
     await logout.mutateAsync()
     onSession(null)
     window.location.assign('/login')
+  }
+
+  if (session?.kind === 'temporary' && (!appsReady || sole)) {
+    return <p className="px-6 py-16 text-stone-600">Loading…</p>
   }
 
   return (

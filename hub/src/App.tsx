@@ -81,7 +81,12 @@ export default function App() {
           {error}
         </p>
       ) : null}
-      <Home session={session ?? null} apps={registryQuery.data ?? []} onSession={onSession} />
+      <Home
+        session={session ?? null}
+        apps={registryQuery.data ?? []}
+        appsReady={registryQuery.isFetched}
+        onSession={onSession}
+      />
     </>
   )
 }
