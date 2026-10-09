@@ -1,6 +1,6 @@
 # Releasing
 
-Pull requests and pushes to `main` run the server tests, hub lint, the site script tests, and the create-bouncer tests. Pull requests also build the client and Hello.
+Pull requests and pushes to `main` lint the server and the JavaScript, run the server tests, lint the hub, and run the site script tests and the create-bouncer tests. Pull requests also build the client and Hello.
 
 A pull request has one change-type label: `security`, `feature`, `fix`, `docs`, `test`, `deps`, or `chore`. Create those labels on the repository. The pull request check fails otherwise, and it reruns when the labels change. Other labels can sit alongside that one.
 

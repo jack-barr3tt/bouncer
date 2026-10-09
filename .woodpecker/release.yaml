@@ -20,14 +20,14 @@ steps:
     environment:
       TEST_DATABASE_URL: postgres://bouncer:bouncer@postgres:5432/bouncer?sslmode=disable
     commands:
-      - make test-server
+      - make lint-server test-server
 
   - name: lint-hub
     depends_on: []
     image: node:22-alpine
     commands:
       - apk add --no-cache make
-      - make lint-hub
+      - make lint-js lint-hub
 
   - name: publish-image
     image: docker:27-cli

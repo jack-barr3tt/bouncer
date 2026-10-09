@@ -2,7 +2,8 @@
 
 .PHONY: help postgres init server hub builder migrate dev stop-tmux down stop \
 	schema generate generate-api generate-hub \
-	check test-server test-client test-create test-scripts test-hub lint-hub test-hello
+	check lint lint-server lint-js \
+	test-server test-client test-create test-scripts test-hub lint-hub test-hello
 
 ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 COMPOSE ?= docker compose
@@ -27,6 +28,9 @@ help:
 		'schema       Refresh server/db/schema.sql' \
 		'generate     Regenerate the server API and the hub client' \
 		'check        Run every check' \
+		'lint         Lint the server and the JavaScript' \
+		'lint-server  Lint the server with golangci-lint' \
+		'lint-js      Lint JavaScript and TypeScript with oxlint' \
 		'test-server  Go tests. Set TEST_DATABASE_URL to a database the tests can wipe' \
 		'test-client  Client tests and build' \
 		'test-create  create-bouncer tests' \
@@ -105,7 +109,15 @@ generate-api:
 generate-hub:
 	cd $(ROOT)/hub && npm install && npm run generate
 
-check: test-server test-client test-create test-scripts test-hub test-hello
+check: lint test-server test-client test-create test-scripts test-hub test-hello
+
+lint: lint-server lint-js
+
+lint-server:
+	cd $(ROOT)/server && go run -modfile=golangci-lint.mod github.com/golangci/golangci-lint/v2/cmd/golangci-lint run ./...
+
+lint-js:
+	cd $(ROOT) && npm ci && npm run lint
 
 test-server:
 	cd $(ROOT)/server && go test ./...

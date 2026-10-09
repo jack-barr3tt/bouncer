@@ -139,7 +139,9 @@ func TestPublishSourceApps(t *testing.T) {
 		t.Fatalf("latest: %+v %v", latest, err)
 	}
 
-	os.RemoveAll(filepath.Join(siteRoot, "apps", "games", "chess", "dist"))
+	if err := os.RemoveAll(filepath.Join(siteRoot, "apps", "games", "chess", "dist")); err != nil {
+		t.Fatal(err)
+	}
 	built = nil
 	svc.perform(context.Background(), gamesRemote, second)
 	chess, err = os.ReadFile(filepath.Join(siteRoot, "apps", "games", "chess", "dist", "index.html"))

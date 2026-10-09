@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jack-barr3tt/bouncer/internal/limit"
 	"github.com/google/uuid"
+	"github.com/jack-barr3tt/bouncer/internal/limit"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
@@ -300,7 +300,7 @@ func (s *Store) UpdateUser(ctx context.Context, id uuid.UUID, password *string, 
 	if err != nil {
 		return User{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var current User
 	err = tx.QueryRow(ctx, `SELECT id, username, role, disabled FROM users WHERE id = $1 FOR UPDATE`, id).
@@ -358,7 +358,7 @@ func (s *Store) SetUserApps(ctx context.Context, id uuid.UUID, slugs []string) (
 	if err != nil {
 		return User{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var exists bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)`, id).Scan(&exists); err != nil {
 		return User{}, err
@@ -511,7 +511,7 @@ func (s *Store) Redeem(ctx context.Context, code, nickname, fpHash, ip string) (
 	if err != nil {
 		return uuid.Nil, time.Time{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var (
 		codeID  uuid.UUID

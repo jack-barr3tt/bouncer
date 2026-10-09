@@ -22,4 +22,4 @@ A production build of the hub is what `make server` serves. Set `HUB_DIR` to tha
 
 `make generate` rewrites the server API from `server/openapi.yaml` and the hub client from that file. `make schema` refreshes `server/db/schema.sql` after a migration change.
 
-`make check` runs the client, create, script, server, hub, and Hello checks. Server tests that talk to Postgres need `TEST_DATABASE_URL`. Point that at a database you can wipe. The tests truncate its tables.
+`make lint` runs golangci-lint on the server and oxlint on the JavaScript and TypeScript. `make check` runs that, then the client, create, script, server, hub, and Hello checks. Server tests that talk to Postgres need `TEST_DATABASE_URL`. Point that at a database you can wipe. The tests truncate its tables.

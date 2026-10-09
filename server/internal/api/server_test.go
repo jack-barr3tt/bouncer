@@ -559,7 +559,7 @@ func decode(t *testing.T, res *http.Response, dest any) {
 }
 
 func readBody(res *http.Response) string {
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, _ := io.ReadAll(res.Body)
 	return string(body)
 }
