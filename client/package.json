@@ -1,6 +1,6 @@
 {
   "name": "@jack-barr3tt/bouncer-client",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "description": "Identity and access hooks for an app served by Bouncer.",
   "scripts": {
