@@ -436,7 +436,7 @@ func newConfiguredApp(t *testing.T, cfg configuredApp) *fiber.App {
 		publicBase = "http://127.0.0.1:8080"
 	}
 	writeFile(t, filepath.Join(root, "apps.yaml"), registry)
-	writeFile(t, filepath.Join(root, "apps", "hub", "dist", "index.html"), "hub")
+	writeFile(t, filepath.Join(root, "apps", "hub", "dist", "_shell.html"), "hub")
 	writeFile(t, filepath.Join(root, "apps", "hello", "dist", "index.html"), "hello")
 	writeFile(t, filepath.Join(root, "apps", "hello", "dist", "assets", "app.js"), "js")
 	app, err := api.NewApp(api.Config{

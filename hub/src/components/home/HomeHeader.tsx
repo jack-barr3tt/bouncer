@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useLogout } from '../../api/generated.ts'
-import { loadRegistry } from '../../registry.ts'
 import { setSession, useSession } from '../../hooks/useSession.ts'
+import { loadRegistry } from '../../registry.ts'
 
 export default function HomeHeader() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const logout = useLogout()
   const { session } = useSession()
   const registry = useQuery({ queryKey: ['apps.yaml'], queryFn: loadRegistry })
@@ -13,7 +15,7 @@ export default function HomeHeader() {
   async function signOut() {
     await logout.mutateAsync()
     setSession(queryClient, null)
-    window.location.assign('/login')
+    await navigate({ to: '/login' })
   }
 
   return (
@@ -24,18 +26,18 @@ export default function HomeHeader() {
         {session ? (
           <div className="flex items-center gap-3 text-sm">
             {session.role === 'admin' ? (
-              <a className="font-medium underline" href="/admin">
+              <Link className="font-medium underline" to="/admin">
                 Admin
-              </a>
+              </Link>
             ) : null}
             <button className="font-medium underline" type="button" onClick={() => void signOut()}>
               Sign out
             </button>
           </div>
         ) : (
-          <a className="text-sm font-medium underline" href="/login">
+          <Link className="text-sm font-medium underline" to="/login">
             Sign in
-          </a>
+          </Link>
         )}
       </div>
       <p className="text-base text-stone-600">

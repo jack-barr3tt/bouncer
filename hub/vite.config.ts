@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
@@ -54,8 +55,7 @@ function registryPlugin(): Plugin {
 }
 
 export default defineConfig({
-  base: '/',
-  plugins: [react(), tailwindcss(), registryPlugin()],
+  plugins: [tanstackStart({ spa: { enabled: true } }), react(), tailwindcss(), registryPlugin()],
   server: {
     proxy: {
       '/api': 'http://127.0.0.1:8080',

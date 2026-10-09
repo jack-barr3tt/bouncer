@@ -28,7 +28,7 @@ ENTRYPOINT ["bouncer", "builder"]
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates git openssh-client
 COPY --from=server /bouncer /usr/local/bin/bouncer
-COPY --from=hub /src/hub/dist /opt/bouncer/hub
+COPY --from=hub /src/hub/dist/client /opt/bouncer/hub
 COPY scaffold /opt/bouncer/scaffold
 COPY --from=hello /src/scaffold/apps/hello/dist /opt/bouncer/scaffold/apps/hello/dist
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

@@ -1,11 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import AppList from '../components/home/AppList.tsx'
 import HomeHeader from '../components/home/HomeHeader.tsx'
-import { loadRegistry } from '../registry.ts'
 import { useSession } from '../hooks/useSession.ts'
+import { loadRegistry } from '../registry.ts'
 
-export default function Home() {
+export const Route = createFileRoute('/')({
+  component: Home,
+})
+
+function Home() {
   const { session, error: sessionError, isPending } = useSession()
   const registry = useQuery({ queryKey: ['apps.yaml'], queryFn: loadRegistry })
   const apps = registry.data ?? []

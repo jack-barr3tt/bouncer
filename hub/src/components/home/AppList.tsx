@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useAppAvailability } from '../../hooks/useAppAvailability.ts'
 import { loadRegistry } from '../../registry.ts'
 import { useSession } from '../../hooks/useSession.ts'
@@ -14,9 +15,9 @@ export default function AppList() {
       {!session ? (
         <div className="max-w-xl rounded-2xl border border-stone-200 bg-white px-5 py-8">
           <p className="font-medium">Sign in to see your apps</p>
-          <a className="mt-4 inline-block text-sm font-medium underline" href="/login">
+          <Link className="mt-4 inline-block text-sm font-medium underline" to="/login">
             Sign in
-          </a>
+          </Link>
         </div>
       ) : null}
 

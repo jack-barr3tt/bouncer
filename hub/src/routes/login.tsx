@@ -1,7 +1,12 @@
+import { createFileRoute } from '@tanstack/react-router'
 import CodeForm from '../components/login/CodeForm.tsx'
 import SignInForm from '../components/login/SignInForm.tsx'
 
-export default function Login() {
+export const Route = createFileRoute('/login')({
+  component: Login,
+})
+
+function Login() {
   return (
     <div className="min-h-svh bg-stone-100 text-stone-900">
       <main className="mx-auto flex max-w-md flex-col gap-8 px-4 py-16">

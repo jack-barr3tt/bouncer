@@ -1,9 +1,16 @@
+import { useNavigate, createFileRoute } from '@tanstack/react-router'
 import { useState, type SubmitEvent } from 'react'
-import { useRedeemAccessCode } from '../api/generated.ts'
-import { visitorId } from '../fingerprint.ts'
+import { useRedeemAccessCode } from '../../api/generated.ts'
+import { visitorId } from '../../fingerprint.ts'
 
-export default function Join() {
-  const code = decodeURIComponent(window.location.pathname.replace(/^\/code\/?/, ''))
+export const Route = createFileRoute('/code/{-$code}')({
+  component: Join,
+})
+
+function Join() {
+  const { code: raw } = Route.useParams()
+  const code = raw ? decodeURIComponent(raw) : ''
+  const navigate = useNavigate()
   const [nickname, setNickname] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -16,7 +23,7 @@ export default function Join() {
     try {
       const fingerprint = await visitorId()
       await redeem.mutateAsync({ data: { code, nickname, fingerprint } })
-      window.location.assign('/')
+      await navigate({ to: '/' })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not join.')
       setPending(false)

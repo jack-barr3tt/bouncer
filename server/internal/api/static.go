@@ -146,9 +146,6 @@ func (s *Server) loginPath(next string) string {
 }
 
 func (s *Server) serveHub(c fiber.Ctx, rel string) error {
-	if rel == "login" || rel == "admin" || rel == "code" || strings.HasPrefix(rel, "admin/") || strings.HasPrefix(rel, "code/") {
-		return sendFile(c, s.site.HubDir(), "index.html")
-	}
 	if rel != "" {
 		full, ok := site.SafeJoin(s.site.HubDir(), rel)
 		if !ok {
@@ -159,10 +156,7 @@ func (s *Server) serveHub(c fiber.Ctx, rel string) error {
 			return sendFile(c, s.site.HubDir(), rel)
 		}
 	}
-	if rel == "" || !strings.Contains(path.Base(rel), ".") {
-		return sendFile(c, s.site.HubDir(), "index.html")
-	}
-	return c.SendStatus(fiber.StatusNotFound)
+	return sendFile(c, s.site.HubDir(), "_shell.html")
 }
 
 func (s *Server) optionalPrincipal(c fiber.Ctx) (*store.Principal, error) {

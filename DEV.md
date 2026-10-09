@@ -16,7 +16,7 @@ Postgres listens on `127.0.0.1:5436`. The user, password, and database are `boun
 
 The hub reads `SITE_ROOT/apps.yaml` when `SITE_ROOT` is set. Otherwise it reads `../apps.yaml`, then `scaffold/apps.yaml`. Set `APPS_REGISTRY` to use a different file. The homepage lists the apps that account is allowed to open. An admin is allowed every app in that file.
 
-A production build of the hub is what `make server` serves. Set `HUB_DIR` to that `dist` directory when you want port 8080 to serve the homepage. With `HUB_DIR` empty, the server uses `SITE_ROOT/apps/hub/dist` when that directory exists, and `SITE_ROOT` otherwise.
+A production build of the hub is what `make server` serves. Set `HUB_DIR` to `hub/dist/client` when you want port 8080 to serve the homepage. With `HUB_DIR` empty, the server uses `SITE_ROOT/apps/hub/dist` when that directory exists, and `SITE_ROOT` otherwise.
 
 `make builder` is the git-deploy builder on port 8081. Set `BUILDER_TOKEN` in `.env`. Leave it stopped when you are not exercising deploy.
 

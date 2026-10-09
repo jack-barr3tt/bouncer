@@ -9,7 +9,7 @@ The root [AGENTS.md](../AGENTS.md) still applies. Do not turn this app into a sh
 `vite.config.ts` reads `SITE_ROOT/apps.yaml` when `SITE_ROOT` is set, then `../apps.yaml`, otherwise `../scaffold/apps.yaml`. Set `APPS_REGISTRY` to point at a different file.
 
 - `vite dev` serves that file at `/apps.yaml`.
-- `vite build` copies it into `dist/apps.yaml`.
+- `vite build` copies it into `dist/client/apps.yaml`.
 
 The running server serves `/apps.yaml` from the mounted site, so a consumer's registry wins over the copy baked into this build.
 
@@ -19,7 +19,7 @@ Sign-in, join (`/code/<code>`), and admin live in this app. `vite dev` proxies `
 
 ## Deploy
 
-`base` is `'/'`. The image copies `dist/` to `/opt/bouncer/hub`. The `assets/` directory next to `index.html` is why an app slug cannot be named `assets`.
+The image copies `dist/client/` to `/opt/bouncer/hub`. TanStack Start writes the client shell to `_shell.html`, and the server serves that for any hub path that is not a real file. The `assets/` directory next to that shell is why an app slug cannot be named `assets`.
 
 ## Checks
 

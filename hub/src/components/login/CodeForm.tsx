@@ -1,13 +1,15 @@
+import { useNavigate } from '@tanstack/react-router'
 import { useState, type SubmitEvent } from 'react'
 
 export default function CodeForm() {
+  const navigate = useNavigate()
   const [code, setCode] = useState('')
 
   function openCode(event: SubmitEvent) {
     event.preventDefault()
     const normalized = code.toUpperCase().replace(/[\s-]/g, '')
     if (!normalized) return
-    window.location.assign(`/code/${normalized}`)
+    void navigate({ to: '/code/{-$code}', params: { code: normalized } })
   }
 
   return (
