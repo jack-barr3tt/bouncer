@@ -199,7 +199,7 @@ func (s *Service) build(ctx context.Context, apps []BuildApp) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("builder: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(res.Body, 256<<10))
 	if err != nil {
 		return "", err

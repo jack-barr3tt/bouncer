@@ -44,15 +44,7 @@ func (s *Site) AddApp(app App) error {
 	}
 	docs := make([]appDoc, 0, len(current)+1)
 	for _, existing := range append(current, app) {
-		docs = append(docs, appDoc{
-			Slug:        existing.Slug,
-			Name:        existing.Name,
-			Description: existing.Description,
-			Path:        existing.Path,
-			Icon:        existing.Icon,
-			Source:      existing.Source,
-			Upstream:    existing.Upstream,
-		})
+		docs = append(docs, appDoc(existing))
 	}
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)

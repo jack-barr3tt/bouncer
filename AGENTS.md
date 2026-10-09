@@ -55,4 +55,4 @@ How to run this repository is in [DEV.md](DEV.md). From the repository root, `ma
 
 ## Checks
 
-`make check` runs the client, create, script, server, hub, and Hello checks. Server tests that use Postgres need `TEST_DATABASE_URL`. They truncate that database.
+`make check` lints the server and the JavaScript, then runs the client, create, script, server, hub, and Hello checks. Server tests that use Postgres need `TEST_DATABASE_URL`. They truncate that database.

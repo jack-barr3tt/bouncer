@@ -1,0 +1,10 @@
+{
+  "name": "bouncer",
+  "private": true,
+  "scripts": {
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "oxlint": "^1.81.0"
+  }
+}
