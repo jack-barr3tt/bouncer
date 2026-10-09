@@ -10,6 +10,7 @@ export type SetupOptions = {
   ci: CiSystem
   publicUrl: string
   sitePath: string
+  port: string
   assetsRoot: string
 }
 
@@ -117,7 +118,7 @@ function writeEnv(options: SetupOptions, wrote: string[], skipped: string[]): vo
   const body = [
     'REGISTRY=ghcr.io/jack-barr3tt',
     'IMAGE_TAG=latest',
-    'PORT=8080',
+    `PORT=${options.port}`,
     `SITE_PATH=${options.sitePath}`,
     `PUBLIC_BASE_URL=${options.publicUrl}`,
     'AUTH_BOOTSTRAP_USERNAME=',

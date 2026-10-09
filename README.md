@@ -8,23 +8,25 @@ Create persistent user accounts, or provide scoped temporary access via a URL, j
 
 ## Quick start
 
-Initialize a Bouncer project:
+You should make a git repository for your apps, and initialise it with bouncer:
 
 ```bash
 npx @jack-barr3tt/create-bouncer
 ```
 
-It asks which CI to use (GitHub Actions, Woodpecker, or Forgejo), the public URL, and the absolute path of this directory on the machine that will run Bouncer. It writes the pipelines, the build and deploy scripts, `deploy/docker-compose.yml` with `deploy/.env.example`, and the Hello sample at `apps/hello` with its `apps.yaml` entry.
+`.` writes into the repository you are in. The command asks which CI to use (GitHub Actions, Woodpecker, or Forgejo), the public URL, the absolute path where this repository will be checked out on the server, and the host port. That path is saved as `SITE_PATH`. The port is saved as `PORT` and defaults to 8080. It writes the pipelines, the build and deploy scripts, `deploy/`, and the Hello sample at `apps/hello` with its `apps.yaml` entry.
 
-Copy `deploy/.env.example` to `deploy/.env`. Set `AUTH_BOOTSTRAP_USERNAME` and `AUTH_BOOTSTRAP_PASSWORD`. From `deploy/`:
+The server gets a clone of this repository. `deploy/` stays inside it and holds `docker-compose.yml`, `.env.example`, and an empty `git-key`. Clone the repository on the server at the path you entered. From `deploy/`:
 
 ```bash
+cp .env.example .env
+# set AUTH_BOOTSTRAP_USERNAME and AUTH_BOOTSTRAP_PASSWORD
 docker compose up -d
 ```
 
 Open the public URL and sign in with that account. The first start copies a built Hello into `apps/hello/dist` when that build is missing, so the sample is on the homepage immediately. Change the bootstrap password before anyone else can reach the server.
 
-Compose publishes port 8080 on `127.0.0.1`. Put TLS and your public hostname on a proxy in front of that port. The images are `ghcr.io/jack-barr3tt/bouncer` and `ghcr.io/jack-barr3tt/bouncer-builder`. `IMAGE_TAG` selects the tag for both, and defaults to `latest`. `SITE_PATH` is the site directory mounted into the server. The builder is not published on a port.
+Compose publishes `PORT` from `deploy/.env` on `127.0.0.1`. The default is 8080. Change `PORT` when that port is taken, and point your proxy at the port you chose. The images are `ghcr.io/jack-barr3tt/bouncer` and `ghcr.io/jack-barr3tt/bouncer-builder`. `IMAGE_TAG` selects the tag for both, and defaults to `latest`. `SITE_PATH` is the site directory mounted into the server. The builder is not published on a port.
 
 ## Add an app
 
@@ -135,4 +137,4 @@ The admin page shows the latest deploy and can publish the branch tip. The webho
 
 ## Set the files up by hand
 
-Copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Then copy that example to `deploy/.env`, set the public URL, site path, and bootstrap account, and set `COOKIE_SECURE=true` when the public URL is HTTPS. Create `deploy/git-key` before starting Compose so that mount is a file. Run Compose from `deploy/` so that file supplies the image and the site path.
+Copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Then copy that example to `deploy/.env`, set the public URL, site path, host port, and bootstrap account, and set `COOKIE_SECURE=true` when the public URL is HTTPS. Create `deploy/git-key` before starting Compose so that mount is a file. Run Compose from `deploy/` so that file supplies the image and the site path.
