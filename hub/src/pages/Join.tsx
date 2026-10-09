@@ -1,6 +1,6 @@
 import { useState, type SubmitEvent } from 'react'
-import { useRedeemAccessCode } from './api/generated.ts'
-import { visitorId } from './fingerprint.ts'
+import { useRedeemAccessCode } from '../api/generated.ts'
+import { visitorId } from '../fingerprint.ts'
 
 export default function Join() {
   const code = decodeURIComponent(window.location.pathname.replace(/^\/code\/?/, ''))
