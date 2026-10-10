@@ -1,4 +1,5 @@
 import { addDays, addHours, format, formatISO, parse } from 'date-fns'
+import { Alert, Button, Card, Checkbox, Label, TextInput } from 'flowbite-react'
 import { useState, useSyncExternalStore, type SubmitEvent } from 'react'
 import { useCreateAccessCode, useListAccessCodes, type AppInfo } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
@@ -62,68 +63,68 @@ export default function AccessCodesSection({ apps }: { apps: AppInfo[] }) {
     <section className="mt-12">
       <h2 className="text-xl font-semibold">Access codes</h2>
       {shownError ? (
-        <p className="mt-4 text-sm text-red-700" role="alert">
+        <Alert className="mt-4" color="failure">
           {shownError}
-        </p>
+        </Alert>
       ) : null}
-      <form className="mt-4 rounded-2xl border border-stone-200 bg-white p-4" onSubmit={(event) => void onCreateCode(event)}>
-        <label className="block text-sm">
-          Label
-          <input
-            className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2"
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-          />
-        </label>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {expiryPresets.map((preset) => (
-            <button
-              key={preset.label}
-              className="rounded-full border border-stone-300 px-3 py-1 text-sm"
-              type="button"
-              onClick={() => setExpires(format(preset.at(new Date()), localInput))}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-        <label className="mt-3 block text-sm">
-          Expires
-          <input
-            className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
-            type="datetime-local"
-            value={expiry}
-            onChange={(event) => setExpires(event.target.value)}
-            required
-          />
-        </label>
-        <label className="mt-3 block text-sm">
-          Signup limit
-          <input
-            className="mt-1 block w-24 rounded-xl border border-stone-300 px-3 py-2"
-            type="number"
-            min={1}
-            max={1000}
-            value={maxSignups}
-            onChange={(event) => setMaxSignups(Number(event.target.value))}
-            required
-          />
-        </label>
-        <fieldset className="mt-3">
-          <legend className="text-sm font-medium">Apps</legend>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {apps.map((app) => (
-              <label key={app.slug} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={codeApps.includes(app.slug)} onChange={() => toggle(app.slug)} />
-                {app.name}
-              </label>
+      <Card className="mt-4">
+        <form className="flex flex-col gap-4" onSubmit={(event) => void onCreateCode(event)}>
+          <div>
+            <Label htmlFor="code-label">Label</Label>
+            <TextInput id="code-label" className="mt-1" value={label} onChange={(event) => setLabel(event.target.value)} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {expiryPresets.map((preset) => (
+              <Button
+                key={preset.label}
+                color="light"
+                pill
+                size="xs"
+                type="button"
+                onClick={() => setExpires(format(preset.at(new Date()), localInput))}
+              >
+                {preset.label}
+              </Button>
             ))}
           </div>
-        </fieldset>
-        <button className="mt-4 rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white" type="submit">
-          Create code
-        </button>
-      </form>
+          <div>
+            <Label htmlFor="code-expires">Expires</Label>
+            <TextInput
+              id="code-expires"
+              className="mt-1"
+              type="datetime-local"
+              value={expiry}
+              onChange={(event) => setExpires(event.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="code-limit">Signup limit</Label>
+            <TextInput
+              id="code-limit"
+              className="mt-1 max-w-24"
+              type="number"
+              min={1}
+              max={1000}
+              value={maxSignups}
+              onChange={(event) => setMaxSignups(Number(event.target.value))}
+              required
+            />
+          </div>
+          <fieldset>
+            <legend className="text-sm font-medium">Apps</legend>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {apps.map((app) => (
+                <Label key={app.slug} className="flex items-center gap-2">
+                  <Checkbox checked={codeApps.includes(app.slug)} onChange={() => toggle(app.slug)} />
+                  {app.name}
+                </Label>
+              ))}
+            </div>
+          </fieldset>
+          <Button type="submit">Create code</Button>
+        </form>
+      </Card>
       <ul className="mt-6 flex flex-col gap-4">
         {codes.map((code) => (
           <AccessCodeCard key={code.id} code={code} run={run} />

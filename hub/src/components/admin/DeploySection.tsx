@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns'
+import { Alert, Button, Card, Label, TextInput } from 'flowbite-react'
 import { useState, type SubmitEvent } from 'react'
 import { useCloneRepo, useCreateApp, useGetDeploy, useRunDeploy } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
@@ -68,127 +69,130 @@ export default function DeploySection() {
     <section className="mt-10">
       <h2 className="text-xl font-semibold">Deploy</h2>
       {shownError ? (
-        <p className="mt-4 text-sm text-red-700" role="alert">
+        <Alert className="mt-4" color="failure">
           {shownError}
-        </p>
+        </Alert>
       ) : null}
       <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => void onClone(event)}>
-        <label className="text-sm">
-          Git remote
-          <input
-            className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
+        <div>
+          <Label htmlFor="clone-remote">Git remote</Label>
+          <TextInput
+            id="clone-remote"
+            className="mt-1"
             value={cloneRemote}
             onChange={(event) => setCloneRemote(event.target.value)}
             placeholder="git@github.com:you/notes.git"
             required
           />
-        </label>
-        <label className="text-sm">
-          Folder
-          <input
-            className="mt-1 block w-32 rounded-xl border border-stone-300 px-3 py-2"
+        </div>
+        <div>
+          <Label htmlFor="clone-folder">Folder</Label>
+          <TextInput
+            id="clone-folder"
+            className="mt-1"
             value={cloneName}
             onChange={(event) => setCloneName(event.target.value)}
             placeholder="notes"
             required
           />
-        </label>
-        <label className="text-sm">
-          Branch
-          <input
-            className="mt-1 block w-28 rounded-xl border border-stone-300 px-3 py-2"
+        </div>
+        <div>
+          <Label htmlFor="clone-branch">Branch</Label>
+          <TextInput
+            id="clone-branch"
+            className="mt-1"
             value={cloneBranch}
             onChange={(event) => setCloneBranch(event.target.value)}
             required
           />
-        </label>
-        <button className="rounded-full bg-stone-900 px-4 py-2 text-sm text-white" type="submit">
-          Clone into apps/
-        </button>
+        </div>
+        <Button type="submit">Clone into apps/</Button>
       </form>
       {detected.length > 0 ? (
         <div className="mt-4 grid gap-4">
           {detected.map((app, index) => (
-            <form
-              className="rounded-2xl border border-stone-200 bg-white p-4"
-              key={app.source}
-              onSubmit={(event) => {
-                event.preventDefault()
-                void onAddApp(index)
-              }}
-            >
-              <p className="font-mono text-sm">{app.source}</p>
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <label className="text-sm">
-                  Slug
-                  <input
-                    className="mt-1 block w-28 rounded-xl border border-stone-300 px-3 py-2"
-                    value={app.slug}
-                    onChange={(event) => updateDetected(index, 'slug', event.target.value)}
-                    required
-                  />
-                </label>
-                <label className="text-sm">
-                  Name
-                  <input
-                    className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
-                    value={app.name}
-                    onChange={(event) => updateDetected(index, 'name', event.target.value)}
-                    required
-                  />
-                </label>
-                <label className="text-sm">
-                  Description
-                  <input
-                    className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
-                    value={app.description}
-                    onChange={(event) => updateDetected(index, 'description', event.target.value)}
-                    required
-                  />
-                </label>
-                <label className="text-sm">
-                  Icon
-                  <input
-                    className="mt-1 block w-20 rounded-xl border border-stone-300 px-3 py-2"
-                    value={app.icon}
-                    onChange={(event) => updateDetected(index, 'icon', event.target.value)}
-                    required
-                  />
-                </label>
-                <button className="rounded-full bg-stone-900 px-4 py-2 text-sm text-white" type="submit">
-                  Add app
-                </button>
-              </div>
-            </form>
+            <Card key={app.source}>
+              <form
+                className="flex flex-col gap-4"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void onAddApp(index)
+                }}
+              >
+                <p className="font-mono text-sm">{app.source}</p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <Label htmlFor={`app-slug-${index}`}>Slug</Label>
+                    <TextInput
+                      id={`app-slug-${index}`}
+                      className="mt-1"
+                      value={app.slug}
+                      onChange={(event) => updateDetected(index, 'slug', event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`app-name-${index}`}>Name</Label>
+                    <TextInput
+                      id={`app-name-${index}`}
+                      className="mt-1"
+                      value={app.name}
+                      onChange={(event) => updateDetected(index, 'name', event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`app-description-${index}`}>Description</Label>
+                    <TextInput
+                      id={`app-description-${index}`}
+                      className="mt-1"
+                      value={app.description}
+                      onChange={(event) => updateDetected(index, 'description', event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`app-icon-${index}`}>Icon</Label>
+                    <TextInput
+                      id={`app-icon-${index}`}
+                      className="mt-1"
+                      value={app.icon}
+                      onChange={(event) => updateDetected(index, 'icon', event.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button type="submit">Add app</Button>
+                </div>
+              </form>
+            </Card>
           ))}
         </div>
       ) : null}
       {deploy == null ? null : deploy.enabled ? (
         <div className="mt-4">
           <p className="font-mono text-sm">{deploy.webhookUrl}</p>
-          <button className="mt-3 text-sm underline" type="button" onClick={() => void navigator.clipboard.writeText(deploy.webhookUrl)}>
+          <Button className="mt-3" color="light" size="sm" onClick={() => void navigator.clipboard.writeText(deploy.webhookUrl)}>
             Copy webhook URL
-          </button>
+          </Button>
           <div className="mt-4 grid gap-4">
             {deploy.repos.map((repo) => (
-              <div className="rounded-2xl border border-stone-200 bg-white p-4" key={`${repo.path}:${repo.remote}`}>
+              <Card key={`${repo.path}:${repo.remote}`}>
                 <p className="text-sm">
                   {repo.path ? `${repo.path} · ` : ''}
                   {repo.remote}
                   {repo.branch ? ` · ${repo.branch}` : ''}
                 </p>
-                <div className="mt-3 text-sm">
-                  <button
-                    className="underline disabled:text-stone-400"
-                    type="button"
-                    disabled={repo.latest?.status === 'running'}
-                    onClick={() => void run(() => runDeploy.mutateAsync({ data: { remote: repo.remote } }))}
-                  >
-                    Deploy now
-                  </button>
-                </div>
+                <Button
+                  color="light"
+                  size="sm"
+                  className="w-fit"
+                  disabled={repo.latest?.status === 'running'}
+                  onClick={() => void run(() => runDeploy.mutateAsync({ data: { remote: repo.remote } }))}
+                >
+                  Deploy now
+                </Button>
                 {repo.latest ? (
-                  <div className="mt-4">
+                  <div>
                     <p className="text-sm">
                       {repo.latest.status} · {repo.latest.sha.slice(0, 7)}
                       {repo.latest.finishedAt ? ` · ${format(parseISO(repo.latest.finishedAt), shownTime)}` : ''}
@@ -198,9 +202,9 @@ export default function DeploySection() {
                     ) : null}
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-stone-600">No deploys yet.</p>
+                  <p className="text-sm text-stone-600">No deploys yet.</p>
                 )}
-              </div>
+              </Card>
             ))}
           </div>
         </div>

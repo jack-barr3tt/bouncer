@@ -1,3 +1,4 @@
+import { Alert, Button, Label, TextInput } from 'flowbite-react'
 import { useState, type SubmitEvent } from 'react'
 import { useCreateUser, useListUsers, type AppInfo } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
@@ -26,33 +27,33 @@ export default function AccountsSection({ apps }: { apps: AppInfo[] }) {
     <section className="mt-10">
       <h2 className="text-xl font-semibold">Accounts</h2>
       {shownError ? (
-        <p className="mt-4 text-sm text-red-700" role="alert">
+        <Alert className="mt-4" color="failure">
           {shownError}
-        </p>
+        </Alert>
       ) : null}
       <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => void onCreateUser(event)}>
-        <label className="text-sm">
-          Username
-          <input
-            className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
+        <div>
+          <Label htmlFor="new-username">Username</Label>
+          <TextInput
+            id="new-username"
+            className="mt-1"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             required
           />
-        </label>
-        <label className="text-sm">
-          Password
-          <input
-            className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
+        </div>
+        <div>
+          <Label htmlFor="new-password">Password</Label>
+          <TextInput
+            id="new-password"
+            className="mt-1"
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
           />
-        </label>
-        <button className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white" type="submit">
-          Create user
-        </button>
+        </div>
+        <Button type="submit">Create user</Button>
       </form>
       <ul className="mt-6 flex flex-col gap-4">
         {users.map((user) => (

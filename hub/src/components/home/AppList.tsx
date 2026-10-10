@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Badge, Card } from 'flowbite-react'
 import { useAppAvailability } from '../../hooks/useAppAvailability.ts'
 import { useApps, useSession } from '../../hooks/useSession.ts'
 
@@ -10,19 +11,19 @@ export default function AppList() {
   return (
     <section className="mt-8">
       {!session ? (
-        <div className="max-w-xl rounded-2xl border border-stone-200 bg-white px-5 py-8">
+        <Card className="max-w-xl">
           <p className="font-medium">Sign in to see your apps</p>
-          <Link className="mt-4 inline-block text-sm font-medium underline" to="/login">
+          <Link className="text-sm font-medium underline" to="/login">
             Sign in
           </Link>
-        </div>
+        </Card>
       ) : null}
 
       {session && apps.length === 0 ? (
-        <div className="max-w-xl rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-8">
+        <Card className="max-w-xl">
           <p className="font-medium">No apps yet</p>
-          <p className="mt-2 text-sm text-stone-600">Nothing has been turned on for this account.</p>
-        </div>
+          <p className="text-sm text-stone-600">Nothing has been turned on for this account.</p>
+        </Card>
       ) : null}
 
       {session && apps.length > 0 ? (
@@ -31,17 +32,18 @@ export default function AppList() {
             const down = availability[app.slug] === 'down'
             return (
               <li key={app.slug}>
-                <a
-                  className={`flex h-full flex-col rounded-2xl border bg-white p-5 hover:border-stone-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-800 ${down ? 'border-amber-300' : 'border-stone-200'}`}
-                  href={app.path}
-                >
+                <Card className="h-full" href={app.path}>
                   <span className="flex size-12 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold">
                     {app.icon}
                   </span>
-                  <span className="mt-4 text-lg font-semibold tracking-tight break-words">{app.name}</span>
-                  <span className="mt-1 text-sm leading-6 text-stone-600">{app.description}</span>
-                  {down ? <span className="mt-3 text-sm font-medium text-amber-800">Unavailable</span> : null}
-                </a>
+                  <span className="text-lg font-semibold tracking-tight wrap-break-word">{app.name}</span>
+                  <span className="text-sm leading-6 text-stone-600">{app.description}</span>
+                  {down ? (
+                    <Badge className="w-fit" color="warning">
+                      Unavailable
+                    </Badge>
+                  ) : null}
+                </Card>
               </li>
             )
           })}

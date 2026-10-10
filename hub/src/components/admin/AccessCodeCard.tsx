@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns'
+import { Alert, Button, Card } from 'flowbite-react'
 import { useListTemporaryAccounts, useRevokeAccessCode, useRevokeTemporaryAccount, type AccessCode } from '../../api/generated.ts'
 import type { AdminAction } from '../../hooks/useAdminAction.ts'
 
@@ -12,45 +13,43 @@ export default function AccessCodeCard({ code, run }: { code: AccessCode; run: A
   const loadError = accountsQuery.error instanceof Error ? accountsQuery.error.message : ''
 
   return (
-    <li className="rounded-2xl border border-stone-200 bg-white p-4">
-      <p className="font-medium">{code.label || 'Untitled code'}</p>
-      <p className="mt-1 font-mono text-sm">{code.url}</p>
-      <p className="mt-1 text-sm text-stone-600">
-        {code.signupCount} / {code.maxSignups} signups
-        {code.revokedAt ? ' · revoked' : ''} · expires {format(parseISO(code.expiresAt), shownTime)}
-      </p>
-      <img className="mt-3 size-40" src={`/api/access-codes/${code.id}/qr`} alt="" />
-      {loadError ? (
-        <p className="mt-3 text-sm text-red-700" role="alert">
-          {loadError}
+    <li>
+      <Card>
+        <p className="font-medium">{code.label || 'Untitled code'}</p>
+        <p className="font-mono text-sm">{code.url}</p>
+        <p className="text-sm text-stone-600">
+          {code.signupCount} / {code.maxSignups} signups
+          {code.revokedAt ? ' · revoked' : ''} · expires {format(parseISO(code.expiresAt), shownTime)}
         </p>
-      ) : null}
-      <div className="mt-3 flex gap-3 text-sm">
-        <button className="underline" type="button" onClick={() => void navigator.clipboard.writeText(code.url)}>
-          Copy link
-        </button>
-        {!code.revokedAt ? (
-          <button className="underline" type="button" onClick={() => void run(() => revokeCode.mutateAsync({ id: code.id }))}>
-            Revoke code
-          </button>
-        ) : null}
-      </div>
-      <ul className="mt-4 flex flex-col gap-2">
-        {accounts.map((account) => (
-          <li key={account.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span>
-              {account.nickname}
-              <span className="text-stone-500"> · {account.createdIp}</span>
-              {account.revokedAt ? ' · revoked' : ''}
-            </span>
-            {!account.revokedAt ? (
-              <button className="underline" type="button" onClick={() => void run(() => revokeAccount.mutateAsync({ id: account.id }))}>
-                Revoke
-              </button>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+        <img className="size-40" src={`/api/access-codes/${code.id}/qr`} alt="" />
+        {loadError ? <Alert color="failure">{loadError}</Alert> : null}
+        <div className="flex flex-wrap gap-3">
+          <Button color="light" size="sm" onClick={() => void navigator.clipboard.writeText(code.url)}>
+            Copy link
+          </Button>
+          {!code.revokedAt ? (
+            <Button color="light" size="sm" onClick={() => void run(() => revokeCode.mutateAsync({ id: code.id }))}>
+              Revoke code
+            </Button>
+          ) : null}
+        </div>
+        <ul className="flex flex-col gap-2">
+          {accounts.map((account) => (
+            <li key={account.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span>
+                {account.nickname}
+                <span className="text-stone-500"> · {account.createdIp}</span>
+                {account.revokedAt ? ' · revoked' : ''}
+              </span>
+              {!account.revokedAt ? (
+                <Button color="alternative" size="xs" onClick={() => void run(() => revokeAccount.mutateAsync({ id: account.id }))}>
+                  Revoke
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </Card>
     </li>
   )
 }

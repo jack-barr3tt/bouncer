@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
+import { ThemeProvider } from 'flowbite-react'
 import { useState, type ReactNode } from 'react'
+import { ThemeInit } from '../../.flowbite-react/init.tsx'
 import { useSession, useWatchAccess } from '../hooks/useSession.ts'
 import appCss from '../index.css?url'
 
@@ -52,7 +54,8 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body suppressHydrationWarning>
-        {children}
+        <ThemeInit />
+        <ThemeProvider>{children}</ThemeProvider>
         <Scripts />
       </body>
     </html>
