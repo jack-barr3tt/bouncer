@@ -49,20 +49,26 @@ body {
   font-family: var(--font-sans);
   color: #fff5f8;
   background-color: #07060a;
-  background-image:
-    radial-gradient(920px 540px at 112% -8%, rgba(255, 45, 138, 0.42), transparent 56%),
-    radial-gradient(720px 500px at -12% 108%, rgba(176, 24, 110, 0.36), transparent 52%),
-    radial-gradient(480px 320px at 46% 18%, rgba(255, 140, 190, 0.1), transparent 62%);
-  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
 
-body::before {
+body::before,
+body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+}
+
+body::before {
+  background-image:
+    radial-gradient(920px 540px at 112% -8%, rgba(255, 45, 138, 0.42), transparent 56%),
+    radial-gradient(720px 500px at -12% 108%, rgba(176, 24, 110, 0.36), transparent 52%),
+    radial-gradient(480px 320px at 46% 18%, rgba(255, 140, 190, 0.1), transparent 62%);
+}
+
+body::after {
   opacity: 0.45;
   background-image: radial-gradient(rgba(255, 186, 214, 0.22) 0.6px, transparent 0.65px);
   background-size: 3px 3px;

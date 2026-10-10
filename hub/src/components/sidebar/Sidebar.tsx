@@ -5,6 +5,7 @@ import { motion } from 'motion/react'
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2'
 import { getGetSessionQueryKey, getListAppsQueryKey, useLogout } from '../../api/generated.ts'
+import SiteFooter from '../shell/SiteFooter.tsx'
 import { useSession } from '../../hooks/useSession.ts'
 
 const narrowQuery = '(max-width: 639px)'
@@ -113,12 +114,19 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       </Drawer>
       <motion.div
         key={pathname}
-        className={shown ? (open ? 'pl-4 sm:pl-80' : 'pl-20') : undefined}
+        className={shown ? `flex min-h-dvh flex-col ${open ? 'pl-4 sm:pl-80' : 'pl-20'}` : 'relative h-dvh'}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       >
-        {children}
+        {shown ? children : <div className="h-full overflow-y-auto pb-24">{children}</div>}
+        {shown ? (
+          <SiteFooter />
+        ) : (
+          <div className="absolute inset-x-0 bottom-0">
+            <SiteFooter prominent />
+          </div>
+        )}
       </motion.div>
     </div>
   )

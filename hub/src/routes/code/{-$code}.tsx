@@ -37,7 +37,7 @@ function Join() {
   }
 
   return (
-    <div className="min-h-svh">
+    <div>
       <main className="mx-auto max-w-md px-4 py-16">
         <Fade>
           <p className="text-xs font-semibold tracking-[0.22em] text-pink-300 uppercase">Join</p>

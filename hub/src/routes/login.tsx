@@ -9,7 +9,7 @@ export const Route = createFileRoute('/login')({
 
 function Login() {
   return (
-    <div className="min-h-svh">
+    <div>
       <main className="mx-auto flex max-w-md flex-col gap-8 px-4 py-16">
         <Fade>
           <header>
