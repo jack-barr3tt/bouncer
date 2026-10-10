@@ -1,18 +1,19 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
-import { Button, Drawer, DrawerItems, Sidebar, SidebarItem, SidebarItemGroup, SidebarItems } from 'flowbite-react'
+import { Button, Drawer, DrawerItems, Sidebar as SidebarNav, SidebarItem, SidebarItemGroup, SidebarItems } from 'flowbite-react'
 import { useState, type ReactNode } from 'react'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2'
 import { getGetSessionQueryKey, getListAppsQueryKey, useLogout } from '../../api/generated.ts'
 import { useSession } from '../../hooks/useSession.ts'
 
-export default function AppShell({ children }: { children: ReactNode }) {
+export default function Sidebar({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(true)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const logout = useLogout()
   const { session, isPending } = useSession()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const shown = pathname !== '/login' && !pathname.startsWith('/code')
 
   function toggle() {
     setOpen((current) => !current)
@@ -29,16 +30,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-svh bg-stone-100 text-stone-900">
       <Button
         color="light"
-        className={`fixed top-3 z-50 ${open ? 'left-74' : 'left-3'}`}
+        className={`fixed top-3 z-50 ${shown ? (open ? 'left-74' : 'left-3') : 'hidden'}`}
         aria-label={open ? 'Collapse menu' : 'Expand menu'}
         onClick={toggle}
       >
         {open ? <HiChevronLeft className="size-5" /> : <HiChevronRight className="size-5" />}
       </Button>
-      <Drawer backdrop={false} open={open} onClose={() => setOpen(false)}>
+      <Drawer backdrop={false} className={shown ? undefined : 'hidden'} open={open} onClose={() => setOpen(false)}>
         <h2 className="mb-4 text-base font-semibold text-gray-500">Bouncer</h2>
         <DrawerItems>
-          <Sidebar className="w-full" aria-label="Site">
+          <SidebarNav className="w-full" aria-label="Site">
             <SidebarItems>
               <SidebarItemGroup>
                 <SidebarItem
@@ -82,10 +83,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 ) : null}
               </SidebarItemGroup>
             </SidebarItems>
-          </Sidebar>
+          </SidebarNav>
         </DrawerItems>
       </Drawer>
-      <div className={open ? 'pl-80' : 'pl-16'}>{children}</div>
+      <div className={shown ? (open ? 'pl-80' : 'pl-16') : undefined}>{children}</div>
     </div>
   )
 }

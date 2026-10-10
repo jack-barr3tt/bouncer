@@ -3,6 +3,7 @@ import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-r
 import { ThemeProvider } from 'flowbite-react'
 import { useState, type ReactNode } from 'react'
 import { ThemeInit } from '../../.flowbite-react/init.tsx'
+import Sidebar from '../components/sidebar/Sidebar.tsx'
 import { useSession, useWatchAccess } from '../hooks/useSession.ts'
 import appCss from '../index.css?url'
 
@@ -35,7 +36,9 @@ function RootComponent() {
     <RootDocument>
       <QueryClientProvider client={queryClient}>
         <AccessWatch />
-        <Outlet />
+        <Sidebar>
+          <Outlet />
+        </Sidebar>
       </QueryClientProvider>
     </RootDocument>
   )
