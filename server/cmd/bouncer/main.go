@@ -88,7 +88,7 @@ func main() {
 	app, err := api.NewApp(api.Config{
 		Pool:           pool,
 		SiteRoot:       root,
-		HubDir:         os.Getenv("HUB_DIR"),
+		HubUpstream:    hubUpstream(),
 		PublicBaseURL:  base,
 		Routing:        os.Getenv("ROUTING"),
 		TrustedProxies: splitList(os.Getenv("TRUSTED_PROXIES")),
@@ -121,6 +121,14 @@ func defaultSiteRoot() string {
 			return cwd
 		}
 	}
+}
+
+func hubUpstream() string {
+	raw := strings.TrimSpace(os.Getenv("HUB_UPSTREAM"))
+	if raw == "" {
+		return "http://127.0.0.1:5173"
+	}
+	return raw
 }
 
 func portSuffix(listen string) string {

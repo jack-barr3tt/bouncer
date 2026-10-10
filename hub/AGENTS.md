@@ -6,12 +6,7 @@ The root [AGENTS.md](../AGENTS.md) still applies. Do not turn this app into a sh
 
 ## Registry
 
-`vite.config.ts` reads `SITE_ROOT/apps.yaml` when `SITE_ROOT` is set, then `../apps.yaml`, otherwise `../scaffold/apps.yaml`. Set `APPS_REGISTRY` to point at a different file.
-
-- `vite dev` serves that file at `/apps.yaml`.
-- `vite build` copies it into `dist/client/apps.yaml`.
-
-The running server serves `/apps.yaml` from the mounted site, so a consumer's registry wins over the copy baked into this build.
+The Go server reads `apps.yaml`. The hub loads `GET /api/apps`, which returns the slug, name, description, public path, and icon of each app the current session can open. A signed-out request gets an empty list. The yaml file is not served.
 
 The page lists each entry the signed-in account is allowed to open. Apps without a grant are omitted. A temporary account that can open only one app is sent straight to that app. A production build marks an allowed app "Unavailable" when its URL does not respond successfully. `vite dev` does not perform that check.
 
@@ -19,7 +14,9 @@ Sign-in, join (`/code/<code>`), and admin live in this app. `vite dev` proxies `
 
 ## Deploy
 
-The image copies `dist/client/` to `/opt/bouncer/hub`. TanStack Start writes the client shell to `_shell.html`, and the server serves that for any hub path that is not a real file. The `assets/` directory next to that shell is why an app slug cannot be named `assets`.
+The homepage is a TanStack Start app. `npm start` serves the production build. The image runs that process and the Go server proxies hub paths to it. `/api` and `/apps` stay on the Go server.
+
+`/assets` belongs to the hub, which is why an app slug cannot be named `assets`.
 
 ## Checks
 

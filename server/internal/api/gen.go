@@ -124,6 +124,20 @@ type AccessCodeList struct {
 	Codes []AccessCode `json:"codes"`
 }
 
+// AppCatalog defines model for AppCatalog.
+type AppCatalog struct {
+	Apps []AppInfo `json:"apps"`
+}
+
+// AppInfo defines model for AppInfo.
+type AppInfo struct {
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Slug        string `json:"slug"`
+}
+
 // AppListRequest defines model for AppListRequest.
 type AppListRequest struct {
 	Slugs []string `json:"slugs"`
@@ -351,6 +365,9 @@ type ServerInterface interface {
 	// (GET /api/access/stream)
 	AccessStream(c fiber.Ctx) error
 
+	// (GET /api/apps)
+	ListApps(c fiber.Ctx) error
+
 	// (POST /api/apps)
 	CreateApp(c fiber.Ctx) error
 
@@ -549,6 +566,24 @@ func (siw *ServerInterfaceWrapper) AccessStream(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.AccessStream(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ListApps operation middleware
+func (siw *ServerInterfaceWrapper) ListApps(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.ListApps(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -907,6 +942,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/api/deploy/run", wrapper.RunDeploy)
 
 	router.Post(options.BaseURL+"/api/deploy/clones", wrapper.CloneRepo)
+
+	router.Get(options.BaseURL+"/api/apps", wrapper.ListApps)
 
 	router.Post(options.BaseURL+"/api/apps", wrapper.CreateApp)
 

@@ -70,10 +70,7 @@ func (s *Server) gate(c fiber.Ctx) error {
 		}
 		return s.serveApp(c, slug, rel, false)
 	}
-	if trimmed == "apps.yaml" {
-		return s.serveRegistry(c)
-	}
-	return s.serveHub(c, trimmed)
+	return s.serveHub(c)
 }
 
 func (s *Server) subdomainURL(c fiber.Ctx, slug, rel string) string {
@@ -145,18 +142,11 @@ func (s *Server) loginPath(next string) string {
 	return loc
 }
 
-func (s *Server) serveHub(c fiber.Ctx, rel string) error {
-	if rel != "" {
-		full, ok := site.SafeJoin(s.site.HubDir(), rel)
-		if !ok {
-			return c.SendStatus(fiber.StatusBadRequest)
-		}
-		info, err := os.Stat(full)
-		if err == nil && !info.IsDir() {
-			return sendFile(c, s.site.HubDir(), rel)
-		}
+func (s *Server) serveHub(c fiber.Ctx) error {
+	if s.hubUpstream == "" {
+		return c.Status(fiber.StatusBadGateway).SendString("Hub is not configured.")
 	}
-	return sendFile(c, s.site.HubDir(), "_shell.html")
+	return s.proxyApp(c, s.hubUpstream, "")
 }
 
 func (s *Server) optionalPrincipal(c fiber.Ctx) (*store.Principal, error) {

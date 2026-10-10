@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build && tsc -b",
+    "start": "srvx --prod --host 127.0.0.1 --port 3000 -s dist/client dist/server/server.js",
     "lint": "oxlint",
     "preview": "vite preview",
     "generate": "orval"
@@ -19,7 +20,7 @@
     "date-fns": "^4.4.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "yaml": "^2.9.1"
+    "srvx": "^0.11.22"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

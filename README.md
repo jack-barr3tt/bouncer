@@ -83,7 +83,7 @@ BUILDER_TOKEN=choose-another-long-secret
 
 `BUILDER_TOKEN` is shared with the builder container. It is not a public secret.
 
-In GitHub or Forgejo, add a webhook for push events to `https://apps.example.com/api/hooks/git`, using that webhook secret. Bouncer fetches the commit, builds the apps whose files changed, and publishes `apps.yaml` and each new `dist`. The homepage reads `apps.yaml` on the next request. A failed build leaves the previous files in place.
+In GitHub or Forgejo, add a webhook for push events to `https://apps.example.com/api/hooks/git`, using that webhook secret. Bouncer fetches the commit, builds the apps whose files changed, and publishes `apps.yaml` and each new `dist`. The homepage reads `GET /api/apps` on the next request. A failed build leaves the previous files in place.
 
 To deploy only after CI passes, or when the forge cannot call the server, the pipeline posts the commit instead:
 

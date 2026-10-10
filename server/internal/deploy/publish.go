@@ -118,7 +118,7 @@ func registrySlugs(root string) ([]string, error) {
 	if info.IsDir() {
 		return nil, fmt.Errorf("apps.yaml is a directory")
 	}
-	opened, err := site.Open(root, "")
+	opened, err := site.Open(root)
 	if err != nil {
 		return nil, err
 	}

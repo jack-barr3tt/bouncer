@@ -78,6 +78,11 @@ func TestLoginGrantAndCode(t *testing.T) {
 	if denied.StatusCode != http.StatusForbidden {
 		t.Fatalf("ungranted app: %d", denied.StatusCode)
 	}
+	hidden := get(t, app, "/api/apps", samCookie, false)
+	hiddenBody := readBody(hidden)
+	if hidden.StatusCode != http.StatusOK || strings.Contains(hiddenBody, "hello") {
+		t.Fatalf("ungranted catalog: %d %s", hidden.StatusCode, hiddenBody)
+	}
 	allowed := get(t, app, "/apps/hello/", adminCookie, true)
 	if allowed.StatusCode != http.StatusOK || !strings.Contains(readBody(allowed), "hello") {
 		t.Fatalf("admin app: %d %s", allowed.StatusCode, readBody(allowed))
@@ -103,6 +108,11 @@ func TestLoginGrantAndCode(t *testing.T) {
 	opened := get(t, app, "/apps/hello/", samCookie, false)
 	if opened.StatusCode != http.StatusOK {
 		t.Fatalf("granted app: %d", opened.StatusCode)
+	}
+	catalog := get(t, app, "/api/apps", samCookie, false)
+	catalogBody := readBody(catalog)
+	if catalog.StatusCode != http.StatusOK || !strings.Contains(catalogBody, "hello") {
+		t.Fatalf("granted catalog: %d %s", catalog.StatusCode, catalogBody)
 	}
 
 	expires := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
@@ -303,6 +313,27 @@ func TestProxyStripsTheAppPrefix(t *testing.T) {
 	}
 }
 
+func TestHubUpstreamProxiesTheHomepage(t *testing.T) {
+	var hits atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		if r.URL.Path != "/login" {
+			t.Errorf("hub path: %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte("signed-in page"))
+	}))
+	t.Cleanup(upstream.Close)
+	app := newConfiguredApp(t, configuredApp{hubUpstream: upstream.URL})
+	page := get(t, app, "/login", "", true)
+	if page.StatusCode != http.StatusOK || readBody(page) != "signed-in page" {
+		t.Fatalf("hub: %d %s", page.StatusCode, readBody(page))
+	}
+	session := get(t, app, "/api/session", "", false)
+	if session.StatusCode == http.StatusOK || hits.Load() != 1 {
+		t.Fatalf("api leaked to the hub: status %d hits %d", session.StatusCode, hits.Load())
+	}
+}
+
 func TestProxyReportsADeadUpstream(t *testing.T) {
 	app := newConfiguredApp(t, configuredApp{registry: notesRegistry("http://127.0.0.1:1")})
 	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
@@ -340,10 +371,19 @@ func TestSubdomainRouting(t *testing.T) {
 	if moved.StatusCode != http.StatusFound || moved.Header.Get("Location") != "https://hello.example.com/items?x=1" {
 		t.Fatalf("apex redirect: %d %s", moved.StatusCode, moved.Header.Get("Location"))
 	}
-	registry := getHost(t, app, "/apps.yaml", "example.com", "", false)
+	guestCatalog := getHost(t, app, "/api/apps", "example.com", "", false)
+	guestBody := readBody(guestCatalog)
+	if guestCatalog.StatusCode != http.StatusOK || strings.Contains(guestBody, "hello") {
+		t.Fatalf("guest catalog: %d %s", guestCatalog.StatusCode, guestBody)
+	}
+	registry := getHost(t, app, "/api/apps", "example.com", admin, false)
 	body := readBody(registry)
 	if registry.StatusCode != http.StatusOK || !strings.Contains(body, "https://hello.example.com/") {
-		t.Fatalf("served registry: %d %s", registry.StatusCode, body)
+		t.Fatalf("app catalog: %d %s", registry.StatusCode, body)
+	}
+	file := getHost(t, app, "/apps.yaml", "example.com", "", false)
+	if strings.Contains(readBody(file), "path:") || strings.Contains(readBody(file), "slug:") {
+		t.Fatalf("yaml was served: %s", readBody(file))
 	}
 	stored, err := os.ReadFile(filepath.Join(root, "apps.yaml"))
 	if err != nil {
@@ -393,10 +433,11 @@ func TestLastAdmin(t *testing.T) {
 }
 
 type configuredApp struct {
-	registry   string
-	publicBase string
-	routing    string
-	root       string
+	registry    string
+	publicBase  string
+	routing     string
+	root        string
+	hubUpstream string
 }
 
 func newApp(t *testing.T) *fiber.App {
@@ -436,9 +477,16 @@ func newConfiguredApp(t *testing.T, cfg configuredApp) *fiber.App {
 		publicBase = "http://127.0.0.1:8080"
 	}
 	writeFile(t, filepath.Join(root, "apps.yaml"), registry)
-	writeFile(t, filepath.Join(root, "apps", "hub", "dist", "_shell.html"), "hub")
 	writeFile(t, filepath.Join(root, "apps", "hello", "dist", "index.html"), "hello")
 	writeFile(t, filepath.Join(root, "apps", "hello", "dist", "assets", "app.js"), "js")
+	upstream := cfg.hubUpstream
+	if upstream == "" {
+		stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte("hub"))
+		}))
+		t.Cleanup(stub.Close)
+		upstream = stub.URL
+	}
 	app, err := api.NewApp(api.Config{
 		Pool:          pool,
 		SiteRoot:      root,
@@ -446,6 +494,7 @@ func newConfiguredApp(t *testing.T, cfg configuredApp) *fiber.App {
 		Routing:       cfg.routing,
 		BcryptCost:    bcrypt.MinCost,
 		CookieSecure:  "false",
+		HubUpstream:   upstream,
 	})
 	if err != nil {
 		t.Fatal(err)

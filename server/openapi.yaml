@@ -353,6 +353,15 @@ paths:
         "404":
           $ref: "#/components/responses/Error"
   /api/apps:
+    get:
+      operationId: listApps
+      responses:
+        "200":
+          description: Apps the current session can open. A signed-out request returns an empty list. An admin can open every app. Paths are the public URLs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppCatalog"
     post:
       operationId: createApp
       requestBody:
@@ -427,6 +436,28 @@ components:
         nickname:
           type: string
         fingerprint:
+          type: string
+    AppCatalog:
+      type: object
+      required: [apps]
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppInfo"
+    AppInfo:
+      type: object
+      required: [slug, name, description, path, icon]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        path:
+          type: string
+        icon:
           type: string
     Session:
       type: object

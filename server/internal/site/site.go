@@ -18,24 +18,16 @@ type App struct {
 
 type Site struct {
 	root string
-	hub  string
 	repo bool
 }
 
-func Open(root, hubDir string) (*Site, error) {
+func Open(root string) (*Site, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
 	}
-	hub := ""
-	if strings.TrimSpace(hubDir) != "" {
-		hub, err = filepath.Abs(hubDir)
-		if err != nil {
-			return nil, err
-		}
-	}
 	repo := exists(filepath.Join(abs, "apps", "hub"))
-	return &Site{root: abs, hub: hub, repo: repo}, nil
+	return &Site{root: abs, repo: repo}, nil
 }
 
 func (s *Site) Root() string { return s.root }
@@ -59,16 +51,6 @@ func (s *Site) IsApp(slug string) bool {
 
 func (s *Site) Known(slug string) bool {
 	return s.IsApp(slug)
-}
-
-func (s *Site) HubDir() string {
-	if s.hub != "" {
-		return s.hub
-	}
-	if s.repo {
-		return filepath.Join(s.root, "apps", "hub", "dist")
-	}
-	return s.root
 }
 
 func (s *Site) AppDir(slug string) string {
