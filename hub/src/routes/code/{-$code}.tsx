@@ -4,6 +4,7 @@ import { Alert, Button, Card, Label, TextInput } from 'flowbite-react'
 import { useState, type SubmitEvent } from 'react'
 import { getGetSessionQueryKey, getListAppsQueryKey, useRedeemAccessCode } from '../../api/generated.ts'
 import Fade from '../../components/motion/Fade.tsx'
+import Wordmark from '../../components/shell/Wordmark.tsx'
 import { visitorId } from '../../fingerprint.ts'
 
 export const Route = createFileRoute('/code/{-$code}')({
@@ -40,7 +41,8 @@ function Join() {
     <div>
       <main className="mx-auto max-w-md px-4 py-16">
         <Fade>
-          <p className="text-xs font-semibold tracking-[0.22em] text-pink-300 uppercase">Join</p>
+          <Wordmark />
+          <p className="mt-8 text-xs font-semibold tracking-[0.22em] text-pink-300 uppercase">Join</p>
           <h1 className="mt-2 text-5xl font-extrabold">Choose a nickname</h1>
           <p className="mt-3 text-sm text-pink-100/70">
             Code <span className="font-mono text-pink-200">{code}</span>

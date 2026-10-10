@@ -7,7 +7,6 @@ export default function HomeHeader() {
 
   return (
     <header className="flex max-w-xl flex-col gap-3">
-      <p className="text-xs font-semibold tracking-[0.22em] text-pink-300 uppercase">Personal</p>
       <h1 className="text-5xl font-extrabold">Apps</h1>
       {!isPending ? (
         <p className="text-base text-pink-100/75">

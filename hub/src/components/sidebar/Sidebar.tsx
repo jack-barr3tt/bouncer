@@ -6,6 +6,7 @@ import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2'
 import { getGetSessionQueryKey, getListAppsQueryKey, useLogout } from '../../api/generated.ts'
 import SiteFooter from '../shell/SiteFooter.tsx'
+import Wordmark from '../shell/Wordmark.tsx'
 import { useSession } from '../../hooks/useSession.ts'
 
 const narrowQuery = '(max-width: 639px)'
@@ -42,13 +43,13 @@ export default function Sidebar({ children }: { children: ReactNode }) {
     <div className="relative z-10 min-h-svh text-pink-50">
       <motion.div
         aria-hidden
-        className="pointer-events-none fixed -top-28 -right-16 size-[30rem] rounded-full bg-pink-500/30 blur-3xl"
+        className="pointer-events-none fixed -top-28 -right-16 size-120 rounded-full bg-pink-500/30 blur-3xl"
         animate={{ x: [0, -36, 0], y: [0, 28, 0] }}
         transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.div
         aria-hidden
-        className="pointer-events-none fixed -bottom-32 -left-20 size-[26rem] rounded-full bg-fuchsia-700/25 blur-3xl"
+        className="pointer-events-none fixed -bottom-32 -left-20 size-104 rounded-full bg-fuchsia-700/25 blur-3xl"
         animate={{ x: [0, 40, 0], y: [0, -24, 0] }}
         transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
       />
@@ -59,7 +60,9 @@ export default function Sidebar({ children }: { children: ReactNode }) {
       ) : null}
       <Drawer backdrop={false} className={shown ? undefined : 'hidden'} open={open} onClose={() => setPicked(false)}>
         <div className="mb-5 flex items-center justify-between gap-2">
-          <h2 className="bg-linear-to-r from-pink-200 to-pink-500 bg-clip-text text-2xl font-bold text-transparent">Bouncer</h2>
+          <h2>
+            <Wordmark className="text-2xl font-bold" />
+          </h2>
           <Button color="light" pill size="sm" aria-label="Collapse menu" onClick={toggle}>
             <HiChevronLeft className="size-5" />
           </Button>
@@ -103,7 +106,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
                   </SidebarItem>
                 ) : null}
                 {!isPending && session ? (
-                  <SidebarItem as="button" onClick={() => void signOut()}>
+                  <SidebarItem as="button" className="w-full text-left" onClick={() => void signOut()}>
                     Sign out
                   </SidebarItem>
                 ) : null}
