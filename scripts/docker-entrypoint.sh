@@ -38,4 +38,9 @@ if [ "${1:-}" = "init" ]; then
   exit 0
 fi
 
+if [ -n "${HUB_UPSTREAM:-}" ] && [ -f /opt/bouncer/hub/dist/server/server.js ]; then
+  cd /opt/bouncer/hub
+  npx srvx --prod --host 127.0.0.1 --port 3000 -s dist/client dist/server/server.js &
+fi
+
 exec /usr/local/bin/bouncer

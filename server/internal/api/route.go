@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
-	"gopkg.in/yaml.v3"
 )
 
 type hostKind int
@@ -121,45 +120,35 @@ func (s *Server) cookieDomain(c fiber.Ctx) string {
 	return ""
 }
 
-func (s *Server) serveRegistry(c fiber.Ctx) error {
+func (s *Server) ListApps(c fiber.Ctx) error {
 	kind, _, err := s.classifyHost(c)
 	if err != nil {
 		return s.internal(c, err)
 	}
-	if kind != hostApex {
-		return sendFile(c, s.site.Root(), "apps.yaml")
+	principal, err := s.optionalPrincipal(c)
+	if err != nil {
+		return s.internal(c, err)
 	}
 	apps, err := s.site.Apps()
 	if err != nil {
 		return s.internal(c, err)
 	}
-	type entry struct {
-		Slug        string `yaml:"slug"`
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-		Path        string `yaml:"path"`
-		Icon        string `yaml:"icon"`
-		Source      string `yaml:"source,omitempty"`
-		Upstream    string `yaml:"upstream,omitempty"`
-	}
-	out := struct {
-		Apps []entry `yaml:"apps"`
-	}{Apps: make([]entry, 0, len(apps))}
+	out := make([]AppInfo, 0)
 	for _, app := range apps {
-		out.Apps = append(out.Apps, entry{
+		if principal == nil || !contains(principal.Apps, app.Slug) {
+			continue
+		}
+		path := app.Path
+		if kind == hostApex {
+			path = s.route.origin(app.Slug) + "/"
+		}
+		out = append(out, AppInfo{
 			Slug:        app.Slug,
 			Name:        app.Name,
 			Description: app.Description,
-			Path:        s.route.origin(app.Slug) + "/",
+			Path:        path,
 			Icon:        app.Icon,
-			Source:      app.Source,
-			Upstream:    app.Upstream,
 		})
 	}
-	body, err := yaml.Marshal(out)
-	if err != nil {
-		return s.internal(c, err)
-	}
-	c.Set(fiber.HeaderContentType, "application/yaml")
-	return c.Send(body)
+	return c.JSON(AppCatalog{Apps: out})
 }

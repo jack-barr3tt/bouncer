@@ -22,7 +22,7 @@ var errHandled = errors.New("response handled")
 type Config struct {
 	Pool           *pgxpool.Pool
 	SiteRoot       string
-	HubDir         string
+	HubUpstream    string
 	PublicBaseURL  string
 	Routing        string
 	BcryptCost     int
@@ -38,12 +38,13 @@ type Server struct {
 	publicBase   string
 	route        publicRoute
 	cookieSecure string
+	hubUpstream  string
 	deploy       *deploy.Service
 	proxies      sync.Map
 }
 
 func NewApp(cfg Config) (*fiber.App, error) {
-	opened, err := site.Open(cfg.SiteRoot, cfg.HubDir)
+	opened, err := site.Open(cfg.SiteRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +76,7 @@ func NewApp(cfg Config) (*fiber.App, error) {
 		publicBase:   route.base,
 		route:        route,
 		cookieSecure: strings.ToLower(strings.TrimSpace(cfg.CookieSecure)),
+		hubUpstream:  strings.TrimRight(strings.TrimSpace(cfg.HubUpstream), "/"),
 		deploy:       cfg.Deploy,
 	}
 	app.Use(srv.gate)

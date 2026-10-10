@@ -25,16 +25,19 @@ ENV WORKSPACE=/workspace
 EXPOSE 8081
 ENTRYPOINT ["bouncer", "builder"]
 
-FROM alpine:3.22
-RUN apk add --no-cache ca-certificates git openssh-client
+FROM node:22-alpine
+RUN apk add --no-cache git openssh-client
 COPY --from=server /bouncer /usr/local/bin/bouncer
-COPY --from=hub /src/hub/dist /opt/bouncer/hub
+WORKDIR /opt/bouncer/hub
+COPY hub/package.json hub/package-lock.json ./
+RUN npm ci --omit=dev
+COPY --from=hub /src/hub/dist ./dist
 COPY scaffold /opt/bouncer/scaffold
 COPY --from=hello /src/scaffold/apps/hello/dist /opt/bouncer/scaffold/apps/hello/dist
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 755 /usr/local/bin/docker-entrypoint.sh /usr/local/bin/bouncer
 ENV SITE_ROOT=/site
-ENV HUB_DIR=/opt/bouncer/hub
+ENV HUB_UPSTREAM=http://127.0.0.1:3000
 ENV LISTEN_ADDR=:8080
 EXPOSE 8080
 ENTRYPOINT ["docker-entrypoint.sh"]

@@ -41,7 +41,7 @@ services:
     environment:
       DATABASE_URL: postgres://bouncer:bouncer@postgres:5432/bouncer?sslmode=disable
       SITE_ROOT: /site
-      HUB_DIR: /opt/bouncer/hub
+      HUB_UPSTREAM: http://127.0.0.1:3000
       LISTEN_ADDR: ":8080"
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://127.0.0.1:8080}
       ROUTING: ${ROUTING:-}

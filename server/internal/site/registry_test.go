@@ -13,7 +13,7 @@ func TestAppsYAML(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := Open(dir, "")
+	opened, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestAppsYAMLKeepsSource(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := Open(dir, "")
+	opened, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestAppsYAMLRejectsASourceOutsideApps(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := Open(dir, "")
+	opened, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestAppsYAMLRejectsASourceThatEscapes(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := Open(dir, "")
+	opened, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestAppsYAMLKeepsUpstream(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := Open(dir, "")
+	opened, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func rejectUpstream(t *testing.T, upstream, source, want string) {
 	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := Open(dir, "")
+	opened, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestAppsYAMLRejectsABadPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := Open(dir, "")
+	opened, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}

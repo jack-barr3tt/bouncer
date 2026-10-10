@@ -25,9 +25,9 @@ Schema changes go through numbered files in `server/db/migrations/`. After chang
 
 ## Site
 
-`SITE_ROOT` is the consumer directory. `HUB_DIR` is the built homepage. When `HUB_DIR` is unset and `SITE_ROOT/apps/hub` exists, the server uses that build. Otherwise the homepage files are `SITE_ROOT` itself.
+`SITE_ROOT` is the consumer directory. The homepage is the server-rendered hub. `HUB_UPSTREAM` is its origin, and defaults to `http://127.0.0.1:5173`. The image sets it to the hub process on port 3000.
 
-App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE_ROOT/apps/<slug>` otherwise. An app with `upstream` is proxied to that origin instead. `/apps.yaml` is always read from `SITE_ROOT`. The server checks that file against the schema in `server/schema/apps.schema.json`.
+App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE_ROOT/apps/<slug>` otherwise. An app with `upstream` is proxied to that origin instead. The server reads `apps.yaml` from `SITE_ROOT` and checks it against the schema in `server/schema/apps.schema.json`. `GET /api/apps` returns the apps the current session can open. A signed-out request gets an empty list. An admin sees every app. The yaml file is not served.
 
 `ROUTING=subdomain` serves each app at `<slug>.<host>` of `PUBLIC_BASE_URL`. The apex stays the homepage. Unset, `path`, or a localhost or IP public host keeps `/apps/<slug>/`. A wildcard DNS record and certificate have to cover one label under that host.
 

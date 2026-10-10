@@ -30,7 +30,7 @@ func (s *Service) discover() ([]sourceRepo, error) {
 	if strings.TrimSpace(s.cfg.SiteRoot) == "" {
 		return nil, nil
 	}
-	opened, err := site.Open(s.cfg.SiteRoot, "")
+	opened, err := site.Open(s.cfg.SiteRoot)
 	if err != nil {
 		return nil, err
 	}

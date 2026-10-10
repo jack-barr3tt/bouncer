@@ -1,61 +1,11 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig, type Plugin } from 'vite'
-
-const hubDir = path.dirname(fileURLToPath(import.meta.url))
-
-function registryPath(): string {
-  if (process.env.APPS_REGISTRY) return path.resolve(process.env.APPS_REGISTRY)
-  if (process.env.SITE_ROOT) return path.resolve(hubDir, '..', process.env.SITE_ROOT, 'apps.yaml')
-  const site = path.resolve(hubDir, '../apps.yaml')
-  try {
-    readFileSync(site)
-    return site
-  } catch {
-    return path.resolve(hubDir, '../scaffold/apps.yaml')
-  }
-}
-
-function readRegistry(): string {
-  const file = registryPath()
-  try {
-    return readFileSync(file, 'utf8')
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : 'unknown error'
-    throw new Error(`Could not read the app registry at ${file}: ${detail}`)
-  }
-}
-
-function registryPlugin(): Plugin {
-  return {
-    name: 'app-registry',
-    configureServer(server) {
-      server.middlewares.use('/apps.yaml', (request, response, next) => {
-        if (request.method !== 'GET' && request.method !== 'HEAD') {
-          next()
-          return
-        }
-        response.setHeader('Content-Type', 'application/yaml')
-        response.setHeader('Cache-Control', 'no-store')
-        response.end(readRegistry())
-      })
-    },
-    generateBundle() {
-      this.emitFile({
-        type: 'asset',
-        fileName: 'apps.yaml',
-        source: readRegistry(),
-      })
-    },
-  }
-}
+import { defineConfig } from 'vite'
+import flowbiteReact from 'flowbite-react/plugin/vite'
 
 export default defineConfig({
-  base: '/',
-  plugins: [react(), tailwindcss(), registryPlugin()],
+  plugins: [tanstackStart(), react(), tailwindcss(), flowbiteReact()],
   server: {
     proxy: {
       '/api': 'http://127.0.0.1:8080',
