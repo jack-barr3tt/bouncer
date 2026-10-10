@@ -24,7 +24,7 @@ export default function AppList() {
       {!session ? (
         <Card className="max-w-xl">
           <p className="font-medium">Sign in to see your apps</p>
-          <Link className="text-sm font-medium text-pink-300 underline" to="/login">
+          <Link className="accent text-sm font-medium underline" to="/login">
             Sign in
           </Link>
         </Card>
@@ -33,7 +33,7 @@ export default function AppList() {
       {session && apps.length === 0 ? (
         <Card className="max-w-xl">
           <p className="font-medium">No apps yet</p>
-          <p className="text-sm text-pink-100/70">Nothing has been turned on for this account.</p>
+          <p className="soft text-sm">Nothing has been turned on for this account.</p>
         </Card>
       ) : null}
 
@@ -48,7 +48,7 @@ export default function AppList() {
                     {app.icon}
                   </span>
                   <span className="font-display text-lg font-bold wrap-break-word">{app.name}</span>
-                  <span className="text-sm leading-6 text-pink-100/70">{app.description}</span>
+                  <span className="soft text-sm leading-6">{app.description}</span>
                   {down ? (
                     <Badge className="w-fit" color="warning">
                       Unavailable

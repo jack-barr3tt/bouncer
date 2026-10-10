@@ -17,7 +17,7 @@ export default function AccessCodeCard({ code, run }: { code: AccessCode; run: A
       <Card>
         <p className="font-medium">{code.label || 'Untitled code'}</p>
         <p className="font-mono text-sm">{code.url}</p>
-        <p className="text-sm text-pink-100/70">
+        <p className="soft text-sm">
           {code.signupCount} / {code.maxSignups} signups
           {code.revokedAt ? ' · revoked' : ''} · expires {format(parseISO(code.expiresAt), shownTime)}
         </p>
@@ -38,7 +38,7 @@ export default function AccessCodeCard({ code, run }: { code: AccessCode; run: A
             <li key={account.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span>
                 {account.nickname}
-                <span className="text-pink-200/55"> · {account.createdIp}</span>
+                <span className="soft"> · {account.createdIp}</span>
                 {account.revokedAt ? ' · revoked' : ''}
               </span>
               {!account.revokedAt ? (

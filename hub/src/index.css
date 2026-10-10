@@ -10,7 +10,7 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   --primary-50: #fff1f7;
   --primary-100: #ffe4ef;
   --primary-200: #ffc9df;
@@ -43,13 +43,22 @@
   --gray-900: #09070a;
 }
 
+.dark {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-height: 100svh;
   font-family: var(--font-sans);
+  color: #3d1228;
+  background-color: #fff7fa;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark body {
   color: #fff5f8;
   background-color: #07060a;
-  -webkit-font-smoothing: antialiased;
 }
 
 body::before,
@@ -63,15 +72,28 @@ body::after {
 
 body::before {
   background-image:
+    radial-gradient(920px 540px at 112% -8%, rgba(255, 45, 138, 0.2), transparent 58%),
+    radial-gradient(760px 520px at -14% 110%, rgba(255, 170, 205, 0.55), transparent 54%),
+    radial-gradient(520px 340px at 48% 12%, rgba(255, 228, 239, 0.9), transparent 64%);
+}
+
+.dark body::before {
+  background-image:
     radial-gradient(920px 540px at 112% -8%, rgba(255, 45, 138, 0.42), transparent 56%),
     radial-gradient(720px 500px at -12% 108%, rgba(176, 24, 110, 0.36), transparent 52%),
     radial-gradient(480px 320px at 46% 18%, rgba(255, 140, 190, 0.1), transparent 62%);
 }
 
 body::after {
+  opacity: 0.4;
+  background-image: radial-gradient(rgba(143, 11, 71, 0.16) 0.6px, transparent 0.65px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+}
+
+.dark body::after {
   opacity: 0.45;
   background-image: radial-gradient(rgba(255, 186, 214, 0.22) 0.6px, transparent 0.65px);
-  background-size: 3px 3px;
   mix-blend-mode: soft-light;
 }
 
@@ -83,8 +105,30 @@ h2 {
 
 .panel-grid {
   background-image:
-    linear-gradient(rgba(255, 45, 138, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 45, 138, 0.07) 1px, transparent 1px);
+    linear-gradient(rgba(255, 45, 138, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 45, 138, 0.09) 1px, transparent 1px);
   background-size: 22px 22px;
   background-position: center;
+}
+
+.dark .panel-grid {
+  background-image:
+    linear-gradient(rgba(255, 45, 138, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 45, 138, 0.07) 1px, transparent 1px);
+}
+
+.soft {
+  color: rgb(74 22 48 / 0.72);
+}
+
+.dark .soft {
+  color: rgb(255 228 239 / 0.75);
+}
+
+.accent {
+  color: #c2185b;
+}
+
+.dark .accent {
+  color: #ff9dca;
 }

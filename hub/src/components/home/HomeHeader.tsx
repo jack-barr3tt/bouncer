@@ -9,7 +9,7 @@ export default function HomeHeader() {
     <header className="flex max-w-xl flex-col gap-3">
       <h1 className="text-5xl font-extrabold">Apps</h1>
       {!isPending ? (
-        <p className="text-base text-pink-100/75">
+        <p className="soft text-base">
           {session?.kind === 'temporary'
             ? `Signed in as ${session.nickname}.`
             : session

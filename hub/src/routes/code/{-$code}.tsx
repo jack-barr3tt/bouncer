@@ -42,10 +42,10 @@ function Join() {
       <main className="mx-auto max-w-md px-4 py-16">
         <Fade>
           <Wordmark />
-          <p className="mt-8 text-xs font-semibold tracking-[0.22em] text-pink-300 uppercase">Join</p>
+          <p className="accent mt-8 text-xs font-semibold tracking-[0.22em] uppercase">Join</p>
           <h1 className="mt-2 text-5xl font-extrabold">Choose a nickname</h1>
-          <p className="mt-3 text-sm text-pink-100/70">
-            Code <span className="font-mono text-pink-200">{code}</span>
+          <p className="soft mt-3 text-sm">
+            Code <span className="font-mono text-pink-800 dark:text-pink-200">{code}</span>
           </p>
         </Fade>
         <Fade delay={0.08}>

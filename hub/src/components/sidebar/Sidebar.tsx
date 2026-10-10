@@ -6,6 +6,7 @@ import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { HiChevronLeft, HiChevronRight } from 'react-icons/hi2'
 import { getGetSessionQueryKey, getListAppsQueryKey, useLogout } from '../../api/generated.ts'
 import SiteFooter from '../shell/SiteFooter.tsx'
+import ThemeToggle from '../shell/ThemeToggle.tsx'
 import Wordmark from '../shell/Wordmark.tsx'
 import { useSession } from '../../hooks/useSession.ts'
 
@@ -40,16 +41,17 @@ export default function Sidebar({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="relative z-10 min-h-svh text-pink-50">
+    <div className="relative z-10 min-h-svh">
+      <ThemeToggle className="fixed top-4 right-4 z-50" />
       <motion.div
         aria-hidden
-        className="pointer-events-none fixed -top-28 -right-16 size-120 rounded-full bg-pink-500/30 blur-3xl"
+        className="pointer-events-none fixed -top-28 -right-16 size-120 rounded-full bg-pink-300/50 blur-3xl dark:bg-pink-500/30"
         animate={{ x: [0, -36, 0], y: [0, 28, 0] }}
         transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.div
         aria-hidden
-        className="pointer-events-none fixed -bottom-32 -left-20 size-104 rounded-full bg-fuchsia-700/25 blur-3xl"
+        className="pointer-events-none fixed -bottom-32 -left-20 size-104 rounded-full bg-pink-200/70 blur-3xl dark:bg-fuchsia-700/25"
         animate={{ x: [0, 40, 0], y: [0, -24, 0] }}
         transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
       />

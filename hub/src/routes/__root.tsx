@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import { ThemeProvider } from 'flowbite-react'
 import { MotionConfig } from 'motion/react'
+import { subscribeTheme, themeIsDark } from '../themeMode.ts'
 import { theme } from '../theme.ts'
-import { useState, type ReactNode } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { ThemeInit } from '../../.flowbite-react/init.tsx'
 import Sidebar from '../components/sidebar/Sidebar.tsx'
 import { useSession, useWatchAccess } from '../hooks/useSession.ts'
@@ -58,10 +59,15 @@ function AccessWatch() {
   return null
 }
 
+const themeScript = `(function(){try{if(localStorage.getItem('bouncer-theme')==='light')document.documentElement.classList.remove('dark')}catch(e){}})()`
+
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+  const dark = useSyncExternalStore(subscribeTheme, themeIsDark, () => true)
+
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className={dark ? 'dark' : undefined} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <HeadContent />
       </head>
       <body suppressHydrationWarning>
