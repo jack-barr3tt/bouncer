@@ -45,7 +45,7 @@ export default function AccessCodesSection({ apps, heading = 'Access codes' }: {
       await createCode.mutateAsync({
         data: {
           label,
-          appSlugs: codeApps,
+          appSlugs: codeApps.filter((slug) => !apps.some((app) => app.slug === slug && app.public)),
           expiresAt: formatISO(parse(expiry, localInput, new Date())),
           maxSignups,
         },
@@ -111,7 +111,13 @@ export default function AccessCodesSection({ apps, heading = 'Access codes' }: {
             <div className="mt-2 flex flex-wrap gap-3">
               {apps.map((app) => (
                 <Label key={app.slug} className="flex items-center gap-2">
-                  <Checkbox checked={codeApps.includes(app.slug)} onChange={() => toggle(app.slug)} />
+                  <Checkbox
+                    checked={app.public || codeApps.includes(app.slug)}
+                    disabled={app.public}
+                    onChange={() => {
+                      if (!app.public) toggle(app.slug)
+                    }}
+                  />
                   {app.name}
                 </Label>
               ))}

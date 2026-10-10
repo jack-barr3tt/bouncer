@@ -89,13 +89,20 @@ func (s *Server) serveApp(c fiber.Ctx, slug, rel string, onHost bool) error {
 	if err != nil {
 		return s.internal(c, err)
 	}
-	if principal == nil {
+	allowed := principal != nil && contains(principal.Apps, slug)
+	if !allowed {
+		allowed, err = s.store.IsPublic(c.Context(), slug)
+		if err != nil {
+			return s.internal(c, err)
+		}
+	}
+	if !allowed && principal == nil {
 		if wantsHTML(c) {
 			return c.Redirect().Status(fiber.StatusFound).To(s.loginLocation(c, slug, onHost))
 		}
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	if !contains(principal.Apps, slug) {
+	if !allowed {
 		home := "/"
 		if onHost && s.publicBase != "" {
 			home = s.publicBase + "/"

@@ -735,6 +735,80 @@ func (s *Store) shareApps(ctx context.Context, id uuid.UUID) ([]string, error) {
 	return s.slugs(ctx, `SELECT slug FROM user_apps WHERE user_id = $1 AND can_share ORDER BY slug`, id)
 }
 
+func (s *Store) PublicSlugs(ctx context.Context) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT slug FROM public_apps ORDER BY slug`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	slugs := []string{}
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		slugs = append(slugs, slug)
+	}
+	return slugs, rows.Err()
+}
+
+func (s *Store) SetPublic(ctx context.Context, slug string, public bool) error {
+	if public {
+		_, err := s.pool.Exec(ctx, `INSERT INTO public_apps (slug) VALUES ($1) ON CONFLICT DO NOTHING`, slug)
+		return err
+	}
+	_, err := s.pool.Exec(ctx, `DELETE FROM public_apps WHERE slug = $1`, slug)
+	return err
+}
+
+func (s *Store) IsPublic(ctx context.Context, slug string) (bool, error) {
+	var public bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM public_apps WHERE slug = $1)`, slug).Scan(&public)
+	return public, err
+}
+
+type LiveSession struct {
+	Key  string
+	Role string
+	Apps []string
+}
+
+func (s *Store) LiveSessions(ctx context.Context) ([]LiveSession, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT 'user:' || u.id::text, u.role,
+			COALESCE(array_agg(a.slug ORDER BY a.slug) FILTER (WHERE a.slug IS NOT NULL), '{}')
+		FROM sessions s
+		JOIN users u ON u.id = s.user_id
+		LEFT JOIN user_apps a ON a.user_id = u.id
+		WHERE s.expires_at > now() AND NOT u.disabled
+		GROUP BY u.id, u.role
+		UNION ALL
+		SELECT 'temp:' || t.id::text, '',
+			COALESCE(array_agg(ca.slug ORDER BY ca.slug) FILTER (WHERE ca.slug IS NOT NULL), '{}')
+		FROM sessions s
+		JOIN temporary_accounts t ON t.id = s.temporary_account_id
+		JOIN access_codes c ON c.id = t.access_code_id
+		LEFT JOIN access_code_apps ca ON ca.code_id = c.id
+		WHERE s.expires_at > now() AND t.revoked_at IS NULL AND c.expires_at > now()
+		GROUP BY t.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var sessions []LiveSession
+	for rows.Next() {
+		var session LiveSession
+		if err := rows.Scan(&session.Key, &session.Role, &session.Apps); err != nil {
+			return nil, err
+		}
+		if session.Apps == nil {
+			session.Apps = []string{}
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
 func (s *Store) codeApps(ctx context.Context, id uuid.UUID) ([]string, error) {
 	return s.slugs(ctx, `SELECT slug FROM access_code_apps WHERE code_id = $1 ORDER BY slug`, id)
 }

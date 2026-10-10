@@ -14,7 +14,7 @@ Postgres listens on `127.0.0.1:5436`. The user, password, and database are `boun
 
 `docker compose up` runs Postgres, the builder, and `ghcr.io/jack-barr3tt/bouncer`. That server is the published image, so it does not include changes in this checkout.
 
-The homepage lists the apps that account is allowed to open. It loads them from `GET /api/apps`. An admin is allowed every app in `apps.yaml`.
+The homepage lists the apps that account is allowed to open, including public apps. It loads them from `GET /api/apps`. A signed-out visitor sees public apps. An admin is allowed every app in `apps.yaml`.
 
 `make dev` runs the hub with Vite, which renders each page on the server. Port 8080 proxies hub paths to `HUB_UPSTREAM` (`http://127.0.0.1:5173` unless you set it). `npm start` in `hub/` is the production process, on port 3000.
 

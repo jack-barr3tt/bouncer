@@ -613,6 +613,178 @@ func TestLastAdmin(t *testing.T) {
 	}
 }
 
+func TestPublicApps(t *testing.T) {
+	root := t.TempDir()
+	registry := "" +
+		"apps:\n" +
+		"  - slug: hello\n    name: Hello\n    description: Hi\n    path: /apps/hello/\n    icon: Hi\n" +
+		"  - slug: notes\n    name: Notes\n    description: Notes\n    path: /apps/notes/\n    icon: N\n"
+	app := newConfiguredApp(t, configuredApp{root: root, registry: registry})
+	writeFile(t, filepath.Join(root, "apps", "notes", "dist", "index.html"), "notes")
+
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+	created := postJSON(t, app, "/api/users", map[string]string{"username": "sam", "password": "password2"}, admin)
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("create user: %d %s", created.StatusCode, readBody(created))
+	}
+	var user struct {
+		ID string `json:"id"`
+	}
+	decode(t, created, &user)
+	sam := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "sam", "password": "password2"}, ""))
+	if created := postJSON(t, app, "/api/users", map[string]string{"username": "lee", "password": "password3"}, admin); created.StatusCode != http.StatusCreated {
+		t.Fatalf("create lee: %d %s", created.StatusCode, readBody(created))
+	}
+	lee := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "lee", "password": "password3"}, ""))
+
+	hidden := readBody(get(t, app, "/api/apps", "", false))
+	if strings.Contains(hidden, "hello") || strings.Contains(hidden, "notes") {
+		t.Fatalf("signed-out catalog: %s", hidden)
+	}
+	if guest := get(t, app, "/apps/hello/", "", true); guest.StatusCode != http.StatusFound {
+		t.Fatalf("private redirect: %d", guest.StatusCode)
+	}
+
+	if res := patchJSON(t, app, "/api/apps/hello", map[string]bool{"public": true}, sam); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("user visibility: %d", res.StatusCode)
+	}
+	if res := patchJSON(t, app, "/api/apps/missing", map[string]bool{"public": true}, admin); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown app: %d %s", res.StatusCode, readBody(res))
+	}
+	if res := patchJSON(t, app, "/api/apps/hello", map[string]bool{"public": true}, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("make public: %d %s", res.StatusCode, readBody(res))
+	}
+
+	var catalog struct {
+		Apps []struct {
+			Slug   string `json:"slug"`
+			Public bool   `json:"public"`
+		} `json:"apps"`
+	}
+	decode(t, get(t, app, "/api/apps", "", false), &catalog)
+	if len(catalog.Apps) != 1 || catalog.Apps[0].Slug != "hello" || !catalog.Apps[0].Public {
+		t.Fatalf("public catalog: %+v", catalog.Apps)
+	}
+	if opened := get(t, app, "/apps/hello/", "", true); opened.StatusCode != http.StatusOK || !strings.Contains(readBody(opened), "hello") {
+		t.Fatalf("public html: %d", opened.StatusCode)
+	}
+	if asset := get(t, app, "/apps/hello/assets/app.js", "", false); asset.StatusCode != http.StatusOK {
+		t.Fatalf("public asset: %d", asset.StatusCode)
+	}
+	if notes := get(t, app, "/apps/notes/", "", true); notes.StatusCode != http.StatusFound {
+		t.Fatalf("private notes: %d", notes.StatusCode)
+	}
+	if opened := get(t, app, "/apps/hello/", sam, false); opened.StatusCode != http.StatusOK {
+		t.Fatalf("user public app: %d", opened.StatusCode)
+	}
+	if opened := get(t, app, "/apps/hello/", lee, false); opened.StatusCode != http.StatusOK {
+		t.Fatalf("ungranted public app: %d", opened.StatusCode)
+	}
+	if denied := get(t, app, "/apps/notes/", sam, false); denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("user private app: %d", denied.StatusCode)
+	}
+	decode(t, get(t, app, "/api/apps", sam, false), &catalog)
+	if len(catalog.Apps) != 1 || catalog.Apps[0].Slug != "hello" {
+		t.Fatalf("user catalog: %+v", catalog.Apps)
+	}
+
+	grants := putJSON(t, app, "/api/users/"+user.ID+"/apps", map[string]any{
+		"grants": []map[string]any{{"slug": "hello", "canShare": true}, {"slug": "notes", "canShare": false}},
+	}, admin)
+	if grants.StatusCode != http.StatusOK {
+		t.Fatalf("grants: %d %s", grants.StatusCode, readBody(grants))
+	}
+	var listed struct {
+		Users []struct {
+			ID   string   `json:"id"`
+			Apps []string `json:"apps"`
+		} `json:"users"`
+	}
+	decode(t, get(t, app, "/api/users", admin, false), &listed)
+	var stored []string
+	for _, item := range listed.Users {
+		if item.ID == user.ID {
+			stored = item.Apps
+		}
+	}
+	if len(stored) != 2 {
+		t.Fatalf("grants kept while public: %+v", stored)
+	}
+
+	expires := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	onlyPublic := postJSON(t, app, "/api/access-codes", map[string]any{
+		"label": "public", "appSlugs": []string{"hello"}, "expiresAt": expires, "maxSignups": 1,
+	}, admin)
+	if onlyPublic.StatusCode != http.StatusBadRequest {
+		t.Fatalf("public-only code: %d %s", onlyPublic.StatusCode, readBody(onlyPublic))
+	}
+	codeRes := postJSON(t, app, "/api/access-codes", map[string]any{
+		"label": "visit", "appSlugs": []string{"hello", "notes"}, "expiresAt": expires, "maxSignups": 1,
+	}, admin)
+	if codeRes.StatusCode != http.StatusCreated {
+		t.Fatalf("code: %d %s", codeRes.StatusCode, readBody(codeRes))
+	}
+	var code struct {
+		URL  string   `json:"url"`
+		Apps []string `json:"apps"`
+	}
+	decode(t, codeRes, &code)
+	if len(code.Apps) != 1 || code.Apps[0] != "notes" {
+		t.Fatalf("code apps: %+v", code.Apps)
+	}
+	joinCode := code.URL[strings.LastIndex(code.URL, "/")+1:]
+	redeemed := postJSON(t, app, "/api/access-codes/redeem", map[string]string{
+		"code": joinCode, "nickname": "Ada", "fingerprint": "browser-public",
+	}, "")
+	if redeemed.StatusCode != http.StatusOK {
+		t.Fatalf("redeem: %d %s", redeemed.StatusCode, readBody(redeemed))
+	}
+	var temp struct {
+		Apps []string `json:"apps"`
+	}
+	decode(t, redeemed, &temp)
+	if !containsAll(temp.Apps, "hello", "notes") {
+		t.Fatalf("temp apps: %+v", temp.Apps)
+	}
+	tempCookie := cookie(t, redeemed)
+	if opened := get(t, app, "/apps/hello/", tempCookie, false); opened.StatusCode != http.StatusOK {
+		t.Fatalf("temp public app: %d", opened.StatusCode)
+	}
+
+	if res := patchJSON(t, app, "/api/apps/hello", map[string]bool{"public": false}, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("make private: %d %s", res.StatusCode, readBody(res))
+	}
+	if guest := get(t, app, "/apps/hello/", "", true); guest.StatusCode != http.StatusFound {
+		t.Fatalf("private again: %d", guest.StatusCode)
+	}
+	if opened := get(t, app, "/apps/hello/", sam, false); opened.StatusCode != http.StatusOK {
+		t.Fatalf("grant restored: %d", opened.StatusCode)
+	}
+	if denied := get(t, app, "/apps/hello/", lee, false); denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("ungranted lost public app: %d", denied.StatusCode)
+	}
+	decode(t, get(t, app, "/api/session", tempCookie, false), &temp)
+	if len(temp.Apps) != 1 || temp.Apps[0] != "notes" {
+		t.Fatalf("temp after private: %+v", temp.Apps)
+	}
+	if denied := get(t, app, "/apps/hello/", tempCookie, false); denied.StatusCode != http.StatusForbidden {
+		t.Fatalf("temp lost public app: %d", denied.StatusCode)
+	}
+}
+
+func containsAll(have []string, want ...string) bool {
+	set := map[string]struct{}{}
+	for _, slug := range have {
+		set[slug] = struct{}{}
+	}
+	for _, slug := range want {
+		if _, ok := set[slug]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 type configuredApp struct {
 	registry    string
 	publicBase  string
@@ -635,7 +807,7 @@ func newConfiguredApp(t *testing.T, cfg configuredApp) *fiber.App {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
-	if _, err := pool.Exec(ctx, `TRUNCATE deploys, auth_attempts, sessions, temporary_accounts, access_code_apps, access_codes, user_apps, users`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE deploys, auth_attempts, sessions, temporary_accounts, access_code_apps, access_codes, user_apps, users, public_apps`); err != nil {
 		t.Fatal(err)
 	}
 	accounts, err := store.New(pool, bcrypt.MinCost)

@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import AccessCodesSection from '../components/admin/AccessCodesSection.tsx'
 import AccountsSection from '../components/admin/AccountsSection.tsx'
+import AppsSection from '../components/admin/AppsSection.tsx'
 import DeploySection from '../components/admin/DeploySection.tsx'
 import { useApps, useSession } from '../hooks/useSession.ts'
 import { useToastError } from '../toasts.tsx'
@@ -34,6 +35,7 @@ function Admin() {
       <p className="accent text-xs font-semibold tracking-[0.22em] uppercase">Site</p>
       <h1 className="mt-2 text-5xl font-extrabold">Admin</h1>
       <DeploySection />
+      <AppsSection apps={apps} />
       <AccountsSection apps={apps} />
       <AccessCodesSection apps={apps} />
     </main>

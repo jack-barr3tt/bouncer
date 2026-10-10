@@ -17,11 +17,11 @@ const item = {
 export default function AppList() {
   const { session } = useSession()
   const { apps } = useApps()
-  const availability = useAppAvailability(session, apps)
+  const availability = useAppAvailability(apps)
 
   return (
     <section className="mt-8">
-      {!session ? (
+      {!session && apps.length === 0 ? (
         <Card className="max-w-xl">
           <p className="font-medium">Sign in to see your apps</p>
           <Link className="accent text-sm font-medium underline" to="/login">
@@ -37,7 +37,7 @@ export default function AppList() {
         </Card>
       ) : null}
 
-      {session && apps.length > 0 ? (
+      {apps.length > 0 ? (
         <motion.ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" initial="hidden" animate="show" variants={list}>
           {apps.map((app) => {
             const down = availability[app.slug] === 'down'
