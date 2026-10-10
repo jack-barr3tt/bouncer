@@ -1,9 +1,9 @@
 import { useState, type SubmitEvent } from 'react'
-import { useCreateUser, useListUsers } from '../../api/generated.ts'
+import { useCreateUser, useListUsers, type AppInfo } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
 import UserCard from './UserCard.tsx'
 
-export default function AccountsSection() {
+export default function AccountsSection({ apps }: { apps: AppInfo[] }) {
   const { error, run } = useAdminAction()
   const usersQuery = useListUsers()
   const users = usersQuery.data?.users ?? []
@@ -56,7 +56,7 @@ export default function AccountsSection() {
       </form>
       <ul className="mt-6 flex flex-col gap-4">
         {users.map((user) => (
-          <UserCard key={user.id} user={user} run={run} />
+          <UserCard key={user.id} user={user} apps={apps} run={run} />
         ))}
       </ul>
     </section>

@@ -1,7 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import type { Session } from '../api/generated.ts'
-import { loadRegistry } from '../registry.ts'
+import type { AppInfo, Session } from '../api/generated.ts'
 
 type Availability = 'up' | 'down'
 
@@ -30,16 +28,13 @@ async function checkApp(path: string, parent: AbortSignal): Promise<boolean | nu
   }
 }
 
-export function useAppAvailability(session: Session | null) {
-  const registry = useQuery({ queryKey: ['apps.yaml'], queryFn: loadRegistry })
-  const apps = registry.data
+export function useAppAvailability(session: Session | null, apps: AppInfo[]) {
   const [availability, setAvailability] = useState<Record<string, Availability>>({})
 
   useEffect(() => {
-    if (!session || !apps || !import.meta.env.PROD) return
+    if (!session || !import.meta.env.PROD) return
     const controller = new AbortController()
-    const granted = apps.filter((app) => session.apps.includes(app.slug))
-    for (const app of granted) {
+    for (const app of apps) {
       void checkApp(app.path, controller.signal).then((up) => {
         if (controller.signal.aborted || up === null) return
         setAvailability((current) => ({ ...current, [app.slug]: up ? 'up' : 'down' }))

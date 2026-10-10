@@ -1,14 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useAppAvailability } from '../../hooks/useAppAvailability.ts'
-import { loadRegistry } from '../../registry.ts'
-import { useSession } from '../../hooks/useSession.ts'
+import { useApps, useSession } from '../../hooks/useSession.ts'
 
 export default function AppList() {
   const { session } = useSession()
-  const registry = useQuery({ queryKey: ['apps.yaml'], queryFn: loadRegistry })
-  const visible = session ? (registry.data ?? []).filter((app) => session.apps.includes(app.slug)) : []
-  const availability = useAppAvailability(session)
+  const { apps } = useApps()
+  const availability = useAppAvailability(session, apps)
 
   return (
     <section className="mt-8">
@@ -21,16 +18,16 @@ export default function AppList() {
         </div>
       ) : null}
 
-      {session && visible.length === 0 ? (
+      {session && apps.length === 0 ? (
         <div className="max-w-xl rounded-2xl border border-dashed border-stone-300 bg-white px-5 py-8">
           <p className="font-medium">No apps yet</p>
           <p className="mt-2 text-sm text-stone-600">Nothing has been turned on for this account.</p>
         </div>
       ) : null}
 
-      {session && visible.length > 0 ? (
+      {session && apps.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((app) => {
+          {apps.map((app) => {
             const down = availability[app.slug] === 'down'
             return (
               <li key={app.slug}>

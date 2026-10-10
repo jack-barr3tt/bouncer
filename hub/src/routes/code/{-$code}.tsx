@@ -1,6 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, createFileRoute } from '@tanstack/react-router'
 import { useState, type SubmitEvent } from 'react'
-import { useRedeemAccessCode } from '../../api/generated.ts'
+import { getGetSessionQueryKey, getListAppsQueryKey, useRedeemAccessCode } from '../../api/generated.ts'
 import { visitorId } from '../../fingerprint.ts'
 
 export const Route = createFileRoute('/code/{-$code}')({
@@ -11,6 +12,7 @@ function Join() {
   const { code: raw } = Route.useParams()
   const code = raw ? decodeURIComponent(raw) : ''
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [nickname, setNickname] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -22,7 +24,9 @@ function Join() {
     setPending(true)
     try {
       const fingerprint = await visitorId()
-      await redeem.mutateAsync({ data: { code, nickname, fingerprint } })
+      const session = await redeem.mutateAsync({ data: { code, nickname, fingerprint } })
+      queryClient.setQueryData(getGetSessionQueryKey(), session)
+      await queryClient.invalidateQueries({ queryKey: getListAppsQueryKey() })
       await navigate({ to: '/' })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not join.')

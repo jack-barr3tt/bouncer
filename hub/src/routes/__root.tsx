@@ -32,28 +32,26 @@ function RootComponent() {
   return (
     <RootDocument>
       <QueryClientProvider client={queryClient}>
-        <SessionGate />
+        <AccessWatch />
+        <Outlet />
       </QueryClientProvider>
     </RootDocument>
   )
 }
 
-function SessionGate() {
-  const { session, error, isPending } = useSession()
+function AccessWatch() {
+  const { session } = useSession()
   useWatchAccess(session)
-  if (isPending && !error) {
-    return <p className="px-6 py-16 text-stone-600">Loading…</p>
-  }
-  return <Outlet />
+  return null
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>

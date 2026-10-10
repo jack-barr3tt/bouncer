@@ -1,12 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
 import { addDays, addHours, format, formatISO, parse } from 'date-fns'
-import { useState, type SubmitEvent } from 'react'
-import { useCreateAccessCode, useListAccessCodes } from '../../api/generated.ts'
+import { useState, useSyncExternalStore, type SubmitEvent } from 'react'
+import { useCreateAccessCode, useListAccessCodes, type AppInfo } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
-import { loadRegistry } from '../../registry.ts'
 import AccessCodeCard from './AccessCodeCard.tsx'
 
 const localInput = "yyyy-MM-dd'T'HH:mm"
+
+let suggestedExpiry = ''
+
+function suggestedExpirySnapshot() {
+  if (suggestedExpiry === '') suggestedExpiry = format(addHours(new Date(), 8), localInput)
+  return suggestedExpiry
+}
 
 const expiryPresets = [
   { label: '1 hour', at: (now: Date) => addHours(now, 1) },
@@ -15,15 +20,19 @@ const expiryPresets = [
   { label: '7 days', at: (now: Date) => addDays(now, 7) },
 ]
 
-export default function AccessCodesSection() {
+export default function AccessCodesSection({ apps }: { apps: AppInfo[] }) {
   const { error, run } = useAdminAction()
-  const registry = useQuery({ queryKey: ['apps.yaml'], queryFn: loadRegistry })
-  const apps = registry.data ?? []
   const codesQuery = useListAccessCodes()
   const codes = codesQuery.data?.codes ?? []
   const [label, setLabel] = useState('')
   const [maxSignups, setMaxSignups] = useState(1)
-  const [expires, setExpires] = useState(() => format(addHours(new Date(), 8), localInput))
+  const suggested = useSyncExternalStore(
+    () => () => {},
+    suggestedExpirySnapshot,
+    () => '',
+  )
+  const [expires, setExpires] = useState<string | null>(null)
+  const expiry = expires ?? suggested
   const [codeApps, setCodeApps] = useState<string[]>([])
   const createCode = useCreateAccessCode()
   const loadError = codesQuery.error instanceof Error ? codesQuery.error.message : ''
@@ -36,7 +45,7 @@ export default function AccessCodesSection() {
         data: {
           label,
           appSlugs: codeApps,
-          expiresAt: formatISO(parse(expires, localInput, new Date())),
+          expiresAt: formatISO(parse(expiry, localInput, new Date())),
           maxSignups,
         },
       })
@@ -83,7 +92,7 @@ export default function AccessCodesSection() {
           <input
             className="mt-1 block rounded-xl border border-stone-300 px-3 py-2"
             type="datetime-local"
-            value={expires}
+            value={expiry}
             onChange={(event) => setExpires(event.target.value)}
             required
           />

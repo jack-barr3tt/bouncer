@@ -1,8 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { useState, type SubmitEvent } from 'react'
 import { useLogin, type Session } from '../../api/generated.ts'
 import { visitorId } from '../../fingerprint.ts'
-import { setSession } from '../../hooks/useSession.ts'
 
 function safeNext(value: string | null, session: Session): string {
   if (!value) return '/'
@@ -30,7 +28,6 @@ function safeNext(value: string | null, session: Session): string {
 }
 
 export default function SignInForm() {
-  const queryClient = useQueryClient()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -46,7 +43,6 @@ export default function SignInForm() {
       const session = await login.mutateAsync({
         data: { username, password, fingerprint: fingerprint || undefined },
       })
-      setSession(queryClient, session)
       const next = new URLSearchParams(window.location.search).get('next')
       window.location.assign(safeNext(next, session))
     } catch (caught) {

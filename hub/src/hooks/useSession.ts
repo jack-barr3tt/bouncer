@@ -1,24 +1,43 @@
-import { useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { getGetSessionQueryKey, useGetSession, type Session } from '../api/generated.ts'
+import { getGetSessionQueryKey, getListAppsQueryKey, getSession, listApps, useGetSession, useListApps, type Session } from '../api/generated.ts'
 import { isUnauthorized } from '../api/mutator.ts'
-import { watchAccess } from '../registry.ts'
 
 export function useSession() {
-  const sessionQuery = useGetSession({
-    query: { retry: false, retryOnMount: false, enabled: typeof window !== 'undefined' },
+  const query = useGetSession({
+    query: {
+      retry: false,
+      enabled: typeof window !== 'undefined',
+      queryFn: () => getSession(),
+    },
   })
-  const signedOut = isUnauthorized(sessionQuery.error)
-  const session = signedOut ? null : (sessionQuery.data ?? null)
-  const error =
-    sessionQuery.isError && !signedOut && sessionQuery.error instanceof Error ? sessionQuery.error.message : ''
-  return { session, error, isPending: sessionQuery.isPending }
+  const signedOut = isUnauthorized(query.error)
+  const error = query.error && !signedOut ? query.error.message : ''
+  return { session: signedOut ? null : (query.data ?? null), error, isPending: query.isPending }
 }
 
-export function setSession(queryClient: QueryClient, session: Session | null) {
-  if (session) queryClient.setQueryData(getGetSessionQueryKey(), session)
-  else queryClient.removeQueries({ queryKey: getGetSessionQueryKey() })
+export function useApps() {
+  const query = useListApps({
+    query: {
+      enabled: typeof window !== 'undefined',
+      queryFn: () => listApps(),
+    },
+  })
+  const error = query.error instanceof Error ? query.error.message : ''
+  return { apps: query.data?.apps ?? [], error, isPending: query.isPending }
+}
+
+function watchAccess(onAccess: (apps: string[]) => void, onEnded: () => void): () => void {
+  const stream = new EventSource('/api/access/stream')
+  stream.addEventListener('access', (event) => {
+    const data = JSON.parse((event as MessageEvent).data) as { apps?: string[] }
+    onAccess(data.apps ?? [])
+  })
+  stream.addEventListener('session_ended', () => {
+    onEnded()
+  })
+  return () => stream.close()
 }
 
 export function useWatchAccess(session: Session | null) {
@@ -29,13 +48,13 @@ export function useWatchAccess(session: Session | null) {
   useEffect(() => {
     if (!identity) return
     return watchAccess(
-      (allowed) => {
-        queryClient.setQueryData<Session>(getGetSessionQueryKey(), (current) =>
-          current ? { ...current, apps: allowed } : current,
-        )
+      () => {
+        void queryClient.invalidateQueries({ queryKey: getGetSessionQueryKey() })
+        void queryClient.invalidateQueries({ queryKey: getListAppsQueryKey() })
       },
       () => {
-        setSession(queryClient, null)
+        queryClient.removeQueries({ queryKey: getGetSessionQueryKey() })
+        queryClient.removeQueries({ queryKey: getListAppsQueryKey() })
         void navigate({ to: '/login' })
       },
     )

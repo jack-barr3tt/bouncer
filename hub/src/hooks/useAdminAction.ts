@@ -1,16 +1,15 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
+const adminPaths = ['/api/users', '/api/access-codes', '/api/deploy', '/api/apps']
+
+function isAdminQuery(key: unknown) {
+  return typeof key === 'string' && adminPaths.some((path) => key === path || key.startsWith(`${path}/`))
+}
+
 export function invalidateAdmin(queryClient: QueryClient) {
   return queryClient.invalidateQueries({
-    predicate: (query) => {
-      const key = query.queryKey[0]
-      return (
-        key === 'apps.yaml' ||
-        (typeof key === 'string' &&
-          (key.startsWith('/api/users') || key.startsWith('/api/access-codes') || key === '/api/deploy'))
-      )
-    },
+    predicate: (query) => isAdminQuery(query.queryKey[0]),
   })
 }
 

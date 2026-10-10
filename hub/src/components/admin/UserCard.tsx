@@ -1,11 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { useSetUserApps, useUpdateUser, type User, type UserRole } from '../../api/generated.ts'
+import { useSetUserApps, useUpdateUser, type AppInfo, type User, type UserRole } from '../../api/generated.ts'
 import type { AdminAction } from '../../hooks/useAdminAction.ts'
-import { loadRegistry } from '../../registry.ts'
 
-export default function UserCard({ user, run }: { user: User; run: AdminAction }) {
-  const registry = useQuery({ queryKey: ['apps.yaml'], queryFn: loadRegistry })
-  const apps = registry.data ?? []
+export default function UserCard({ user, apps, run }: { user: User; apps: AppInfo[]; run: AdminAction }) {
   const updateUser = useUpdateUser()
   const setUserApps = useSetUserApps()
 

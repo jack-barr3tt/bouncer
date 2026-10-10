@@ -14,7 +14,7 @@ Sign-in, join (`/code/<code>`), and admin live in this app. `vite dev` proxies `
 
 ## Deploy
 
-The homepage is a TanStack Start app. `npm start` serves the production build. The image runs that process and the Go server proxies hub paths to it. `/api` and `/apps` stay on the Go server.
+The homepage is a TanStack Start app. The browser loads the session and `GET /api/apps` through the generated client. `npm start` serves the production build. The image runs that process and the Go server proxies hub paths to it. `/api` and `/apps` stay on the Go server.
 
 `/assets` belongs to the hub, which is why an app slug cannot be named `assets`.
 
