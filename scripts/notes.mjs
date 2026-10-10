@@ -34,7 +34,7 @@ function linkText(title, number) {
   return text || `#${number}`
 }
 
-export function releaseNotes(pulls, version, date) {
+export function groupedChanges(pulls) {
   const errors = []
   const groups = new Map()
   for (const pull of pulls) {
@@ -48,11 +48,18 @@ export function releaseNotes(pulls, version, date) {
     if (!groups.has(name)) groups.set(name, [])
     groups.get(name).push(`- [${linkText(pull.title, pull.number)}](${pull.url})`)
   }
-  if (errors.length > 0 || groups.size === 0) return { notes: '', errors }
+  if (errors.length > 0 || groups.size === 0) return { body: '', errors }
   const used = sections.map(([, name]) => name).filter((name) => groups.has(name))
-  const parts = [`## ${String(version).replace(/^v/, '')} - ${date}`, '']
+  const parts = []
   for (const name of used) {
     parts.push(`### ${name}`, ...groups.get(name), '')
   }
-  return { notes: `${parts.join('\n').trim()}\n`, errors }
+  return { body: `${parts.join('\n').trim()}\n`, errors }
+}
+
+export function releaseNotes(pulls, version, date) {
+  const { body, errors } = groupedChanges(pulls)
+  if (errors.length > 0 || !body) return { notes: '', errors }
+  const heading = `## ${String(version).replace(/^v/, '')} - ${date}`
+  return { notes: `${heading}\n\n${body}`, errors }
 }

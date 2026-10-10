@@ -1,21 +1,31 @@
 import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { changeTypeNames, releaseNotes } from './notes.mjs'
+import { changeTypeNames, groupedChanges, releaseNotes } from './notes.mjs'
 import { githubToken, headDate, pullsBetween, repository } from './pulls.mjs'
 
+function fail(errors) {
+  for (const error of errors) console.error(error)
+  console.error(`add one of: ${changeTypeNames.join(', ')}`)
+  process.exit(1)
+}
+
 async function main() {
-  const [fromArg, toArg, versionArg] = process.argv.slice(2)
+  const args = process.argv.slice(2)
+  const changesOnly = args[0] === '--changes'
+  const [fromArg, toArg, versionArg] = changesOnly ? args.slice(1) : args
   const to = toArg || 'HEAD'
   const from = !fromArg || fromArg === '-' ? '' : fromArg
   const version = (versionArg || '').replace(/^v/, '')
-  if (!version) throw new Error('usage: release-notes.mjs <from|-> <to> <version>')
+  if (!changesOnly && !version) throw new Error('usage: release-notes.mjs [--changes] <from|-> <to> [version]')
   const pulls = await pullsBetween(repository(), from, to, githubToken())
-  const { notes, errors } = releaseNotes(pulls, version, headDate(to))
-  if (errors.length > 0) {
-    for (const error of errors) console.error(error)
-    console.error(`add one of: ${changeTypeNames.join(', ')}`)
-    process.exit(1)
+  if (changesOnly) {
+    const { body, errors } = groupedChanges(pulls)
+    if (errors.length > 0) fail(errors)
+    process.stdout.write(body)
+    return
   }
+  const { notes, errors } = releaseNotes(pulls, version, headDate(to))
+  if (errors.length > 0) fail(errors)
   process.stdout.write(notes)
 }
 

@@ -1,19 +1,10 @@
 #!/bin/sh
 set -eu
 
-usage() {
-  echo "usage: tagbump patch|minor|major" >&2
+if [ "$#" -ne 0 ]; then
+  echo "usage: tagbump" >&2
   exit 2
-}
-
-if [ "$#" -ne 1 ]; then
-  usage
 fi
-
-case "$1" in
-  patch|minor|major) part=$1 ;;
-  *) usage ;;
-esac
 
 cd "$(dirname "$0")/.."
 
@@ -40,28 +31,9 @@ rest=${version#*.}
 minor=${rest%%.*}
 patch=${rest#*.}
 
-case "$part" in
-  major)
-    major=$((major + 1))
-    minor=0
-    patch=0
-    ;;
-  minor)
-    minor=$((minor + 1))
-    patch=0
-    ;;
-  patch)
-    patch=$((patch + 1))
-    ;;
-esac
-
-next_version="${major}.${minor}.${patch}"
-next="v${next_version}"
-
-if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
-  echo "tag ${next} already exists" >&2
-  exit 1
-fi
+patch_version="${major}.${minor}.$((patch + 1))"
+minor_version="${major}.$((minor + 1)).0"
+major_version="$((major + 1)).0.0"
 
 # GitHub can only see pushed commits. The release commit is created below.
 notes_rev=$(git rev-parse HEAD)
@@ -71,14 +43,48 @@ if git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
   fi
 fi
 if git rev-parse -q --verify "refs/tags/${latest}" >/dev/null; then
-  notes=$(node scripts/release-notes.mjs "$latest" "$notes_rev" "$next_version") || exit 1
-  if [ -z "$notes" ]; then
-    echo "no merged pull requests since ${latest}" >&2
-    exit 1
-  fi
+  from=$latest
 else
-  notes=$(node scripts/release-notes.mjs - "$notes_rev" "$next_version") || exit 1
+  from=-
 fi
+
+changes=$(node scripts/release-notes.mjs --changes "$from" "$notes_rev") || exit 1
+if [ -z "$changes" ]; then
+  echo "no merged pull requests since ${latest}" >&2
+  exit 1
+fi
+
+echo "Changes since ${latest}:"
+echo
+printf '%s\n' "$changes"
+
+if [ ! -r /dev/tty ]; then
+  echo "tagbump needs a terminal to choose the release type" >&2
+  exit 1
+fi
+
+while true; do
+  echo "patch  v${patch_version}"
+  echo "minor  v${minor_version}"
+  echo "major  v${major_version}"
+  printf 'Release type: ' >/dev/tty
+  IFS= read -r part </dev/tty || exit 1
+  case "$part" in
+    patch) next_version=$patch_version; break ;;
+    minor) next_version=$minor_version; break ;;
+    major) next_version=$major_version; break ;;
+    *) echo "choose patch, minor, or major" >&2 ;;
+  esac
+done
+
+next="v${next_version}"
+
+if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
+  echo "tag ${next} already exists" >&2
+  exit 1
+fi
+
+notes=$(node scripts/release-notes.mjs "$from" "$notes_rev" "$next_version") || exit 1
 
 changed=0
 for dir in client create; do

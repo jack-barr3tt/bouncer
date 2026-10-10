@@ -7,10 +7,10 @@ A pull request has one change-type label: `security`, `feature`, `fix`, `docs`, 
 On `main`, with a clean working tree:
 
 ```bash
-scripts/tagbump patch
+scripts/tagbump
 ```
 
-Use `minor` or `major` instead of `patch` when that is the bump you want. The script lists the merged pull requests since the previous tag and prints release notes. A note is the pull request title linked to that pull request, under the heading for its label. The tag is lightweight. With no tags yet, the count starts at `v0.0.0`, so the first `v0.1.0` is `scripts/tagbump minor`.
+The script lists the merged pull requests since the previous tag, then asks for `patch`, `minor`, or `major`. A note is the pull request title linked to that pull request, under the heading for its label. The tag is lightweight. With no tags yet, the count starts at `v0.0.0`.
 
 Push `main` and the tag. The script prints the exact command. Woodpecker publishes `ghcr.io/jack-barr3tt/bouncer:<version>` and `:latest`, and the same tags of `ghcr.io/jack-barr3tt/bouncer-builder`, stages `@jack-barr3tt/bouncer-client` and `@jack-barr3tt/create-bouncer`, and opens a GitHub release with those notes.
 
