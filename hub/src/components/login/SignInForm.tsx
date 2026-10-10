@@ -53,8 +53,8 @@ export default function SignInForm() {
   }
 
   return (
-    <Card>
-      <form className="flex flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
+    <Card className="h-full">
+      <form className="flex h-full flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
         <div>
           <Label htmlFor="username">Username</Label>
           <TextInput
@@ -79,7 +79,7 @@ export default function SignInForm() {
           />
         </div>
         {error ? <Alert color="failure">{error}</Alert> : null}
-        <Button type="submit" disabled={pending}>
+        <Button className="mt-auto" type="submit" disabled={pending}>
           {pending ? 'Signing in…' : 'Sign in'}
         </Button>
       </form>

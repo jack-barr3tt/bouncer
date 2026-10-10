@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import { ThemeProvider } from 'flowbite-react'
-import { useState, type ReactNode } from 'react'
+import { MotionConfig } from 'motion/react'
+import { subscribeTheme, themeIsDark } from '../themeMode.ts'
+import { theme } from '../theme.ts'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { ThemeInit } from '../../.flowbite-react/init.tsx'
 import Sidebar from '../components/sidebar/Sidebar.tsx'
 import { useSession, useWatchAccess } from '../hooks/useSession.ts'
@@ -16,6 +19,12 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap',
+      },
       { rel: 'stylesheet', href: appCss },
     ],
   }),
@@ -50,15 +59,22 @@ function AccessWatch() {
   return null
 }
 
+const themeScript = `(function(){try{if(localStorage.getItem('bouncer-theme')==='light')document.documentElement.classList.remove('dark')}catch(e){}})()`
+
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+  const dark = useSyncExternalStore(subscribeTheme, themeIsDark, () => true)
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={dark ? 'dark' : undefined} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <HeadContent />
       </head>
       <body suppressHydrationWarning>
         <ThemeInit />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider theme={theme}>
+          <MotionConfig reducedMotion="user">{children}</MotionConfig>
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

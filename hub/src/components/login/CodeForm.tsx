@@ -14,8 +14,8 @@ export default function CodeForm() {
   }
 
   return (
-    <Card>
-      <form className="flex flex-col gap-4" onSubmit={openCode}>
+    <Card className="h-full">
+      <form className="flex h-full flex-col gap-4" onSubmit={openCode}>
         <div>
           <Label htmlFor="code">Have a code?</Label>
           <HelperText className="mt-1">This opens the join page. It does not sign you in.</HelperText>
@@ -27,7 +27,7 @@ export default function CodeForm() {
             autoCapitalize="characters"
           />
         </div>
-        <Button color="light" type="submit">
+        <Button className="mt-auto" color="light" type="submit">
           Continue
         </Button>
       </form>

@@ -34,7 +34,7 @@ export default function UserCard({ user, apps, run }: { user: User; apps: AppInf
           Disabled
         </Label>
         {user.role === 'admin' ? (
-          <p className="text-sm text-stone-600">Admins can open every app.</p>
+          <p className="soft text-sm">Admins can open every app.</p>
         ) : (
           <fieldset>
             <legend className="text-sm font-medium">Apps</legend>

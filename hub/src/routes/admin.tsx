@@ -20,8 +20,8 @@ function Admin() {
   if (!session || session.role !== 'admin') {
     return (
       <main className="mx-auto max-w-md px-4 py-8">
-        <p>Admin is only available to an admin account.</p>
-        <Link className="mt-4 inline-block text-sm font-medium underline" to={session ? '/' : '/login'}>
+        <p className="soft">Admin is only available to an admin account.</p>
+        <Link className="accent mt-4 inline-block text-sm font-medium underline" to={session ? '/' : '/login'}>
           {session ? 'All apps' : 'Sign in'}
         </Link>
       </main>
@@ -30,7 +30,8 @@ function Admin() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-4xl font-semibold tracking-tight">Admin</h1>
+      <p className="accent text-xs font-semibold tracking-[0.22em] uppercase">Site</p>
+      <h1 className="mt-2 text-5xl font-extrabold">Admin</h1>
       {error || appsError ? (
         <Alert className="mt-4" color="failure">
           {error || appsError}

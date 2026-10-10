@@ -17,11 +17,11 @@ export default function AccessCodeCard({ code, run }: { code: AccessCode; run: A
       <Card>
         <p className="font-medium">{code.label || 'Untitled code'}</p>
         <p className="font-mono text-sm">{code.url}</p>
-        <p className="text-sm text-stone-600">
+        <p className="soft text-sm">
           {code.signupCount} / {code.maxSignups} signups
           {code.revokedAt ? ' · revoked' : ''} · expires {format(parseISO(code.expiresAt), shownTime)}
         </p>
-        <img className="size-40" src={`/api/access-codes/${code.id}/qr`} alt="" />
+        <img className="size-40 rounded-2xl bg-white p-2" src={`/api/access-codes/${code.id}/qr`} alt="" />
         {loadError ? <Alert color="failure">{loadError}</Alert> : null}
         <div className="flex flex-wrap gap-3">
           <Button color="light" size="sm" onClick={() => void navigator.clipboard.writeText(code.url)}>
@@ -38,7 +38,7 @@ export default function AccessCodeCard({ code, run }: { code: AccessCode; run: A
             <li key={account.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span>
                 {account.nickname}
-                <span className="text-stone-500"> · {account.createdIp}</span>
+                <span className="soft"> · {account.createdIp}</span>
                 {account.revokedAt ? ' · revoked' : ''}
               </span>
               {!account.revokedAt ? (
