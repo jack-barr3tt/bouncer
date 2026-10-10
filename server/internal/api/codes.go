@@ -127,6 +127,23 @@ func (s *Server) RevokeAccessCode(c fiber.Ctx, id Id) error {
 	return c.JSON(s.codeJSON(c, code))
 }
 
+func (s *Server) DeleteAccessCode(c fiber.Ctx, id Id) error {
+	if _, err := s.requireAdmin(c); err != nil {
+		return err
+	}
+	temps, err := s.store.DeleteCode(c.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		return writeError(c, fiber.StatusNotFound, "Code not found.")
+	}
+	if err != nil {
+		return s.internal(c, err)
+	}
+	for _, tempID := range temps {
+		s.broker.Publish("temp:"+tempID.String(), accessEvent("session_ended", nil))
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
 func (s *Server) GetAccessCodeQR(c fiber.Ctx, id Id) error {
 	if _, err := s.requireAdmin(c); err != nil {
 		return err

@@ -63,6 +63,24 @@ export const theme = createTheme({
       },
     },
   },
+  modal: {
+    content: {
+      inner: 'relative flex max-h-[90dvh] flex-col rounded-3xl border border-pink-200/90 bg-linear-to-br from-white via-[#fff5f8] to-pink-100/80 shadow-[0_24px_60px_-36px_rgba(208,40,110,0.4)] dark:border-pink-300/20 dark:bg-[#120910] dark:bg-linear-to-br dark:from-[#1a0c14] dark:via-[#3a1024] dark:to-black dark:shadow-[0_24px_70px_-36px_rgba(255,45,138,0.9)]',
+    },
+    header: {
+      base: 'flex items-start justify-between rounded-t-3xl border-b border-pink-200 p-5 dark:border-pink-300/20',
+      title: 'text-xl font-medium text-pink-950 dark:text-pink-50',
+      close: {
+        base: 'ml-auto inline-flex items-center rounded-xl bg-transparent p-1.5 text-sm text-pink-800 hover:bg-pink-100 dark:text-pink-100 dark:hover:bg-pink-500/15',
+      },
+    },
+    body: {
+      base: 'flex-1 overflow-auto p-6 text-pink-900 dark:text-pink-50',
+    },
+    footer: {
+      base: 'flex items-center gap-3 rounded-b-3xl border-t border-pink-200 p-6 dark:border-pink-300/20',
+    },
+  },
   label: {
     root: {
       colors: {

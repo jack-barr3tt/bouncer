@@ -467,6 +467,44 @@ func (s *Store) RevokeCode(ctx context.Context, id uuid.UUID) (Code, error) {
 	return s.GetCode(ctx, id)
 }
 
+func (s *Store) DeleteCode(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx, `SELECT id FROM temporary_accounts WHERE access_code_id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	var temps []uuid.UUID
+	for rows.Next() {
+		var tempID uuid.UUID
+		if err := rows.Scan(&tempID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		temps = append(temps, tempID)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM access_codes WHERE id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotFound
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return temps, nil
+}
+
 func (s *Store) ListTemps(ctx context.Context, codeID uuid.UUID) ([]TempAccount, error) {
 	var exists bool
 	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM access_codes WHERE id = $1)`, codeID).Scan(&exists); err != nil {

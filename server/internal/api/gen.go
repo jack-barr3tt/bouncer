@@ -353,6 +353,9 @@ type ServerInterface interface {
 	// (POST /api/access-codes/redeem)
 	RedeemAccessCode(c fiber.Ctx) error
 
+	// (DELETE /api/access-codes/{id})
+	DeleteAccessCode(c fiber.Ctx, id Id) error
+
 	// (GET /api/access-codes/{id}/accounts)
 	ListTemporaryAccounts(c fiber.Ctx, id Id) error
 
@@ -461,6 +464,35 @@ func (siw *ServerInterfaceWrapper) RedeemAccessCode(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.RedeemAccessCode(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteAccessCode operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAccessCode(c fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.DeleteAccessCode(c, id)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -926,6 +958,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/api/access-codes", wrapper.CreateAccessCode)
 
 	router.Post(options.BaseURL+"/api/access-codes/:id/revoke", wrapper.RevokeAccessCode)
+
+	router.Delete(options.BaseURL+"/api/access-codes/:id", wrapper.DeleteAccessCode)
 
 	router.Get(options.BaseURL+"/api/access-codes/:id/qr", wrapper.GetAccessCodeQR)
 

@@ -230,6 +230,55 @@ func TestCodeRevokeLeavesExistingAccount(t *testing.T) {
 	}
 }
 
+func TestDeleteAccessCodeEndsSessions(t *testing.T) {
+	app := newApp(t)
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+	expires := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	codeRes := postJSON(t, app, "/api/access-codes", map[string]any{
+		"label": "gone", "appSlugs": []string{"hello"}, "expiresAt": expires, "maxSignups": 2,
+	}, admin)
+	if codeRes.StatusCode != http.StatusCreated {
+		t.Fatalf("code: %d %s", codeRes.StatusCode, readBody(codeRes))
+	}
+	var code struct {
+		ID  string `json:"id"`
+		URL string `json:"url"`
+	}
+	decode(t, codeRes, &code)
+	joinCode := code.URL[strings.LastIndex(code.URL, "/")+1:]
+	joined := postJSON(t, app, "/api/access-codes/redeem", map[string]string{
+		"code": joinCode, "nickname": "Ada", "fingerprint": "browser-a",
+	}, "")
+	tempCookie := cookie(t, joined)
+
+	missing := deleteReq(t, app, "/api/access-codes/"+code.ID, "")
+	if missing.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous delete: %d", missing.StatusCode)
+	}
+	deleted := deleteReq(t, app, "/api/access-codes/"+code.ID, admin)
+	if deleted.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", deleted.StatusCode, readBody(deleted))
+	}
+	gone := get(t, app, "/api/session", tempCookie, false)
+	if gone.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("deleted session: %d", gone.StatusCode)
+	}
+	again := postJSON(t, app, "/api/access-codes/redeem", map[string]string{
+		"code": joinCode, "nickname": "Bea", "fingerprint": "browser-b",
+	}, "")
+	if again.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("redeem deleted: %d %s", again.StatusCode, readBody(again))
+	}
+	listed := get(t, app, "/api/access-codes", admin, false)
+	if strings.Contains(readBody(listed), code.ID) {
+		t.Fatalf("code still listed: %s", readBody(listed))
+	}
+	unknown := deleteReq(t, app, "/api/access-codes/"+code.ID, admin)
+	if unknown.StatusCode != http.StatusNotFound {
+		t.Fatalf("second delete: %d %s", unknown.StatusCode, readBody(unknown))
+	}
+}
+
 func TestLoginLockout(t *testing.T) {
 	app := newApp(t)
 	for i := 0; i < 3; i++ {
@@ -520,6 +569,12 @@ func postJSON(t *testing.T, app *fiber.App, path string, body any, cookieHeader 
 func putJSON(t *testing.T, app *fiber.App, path string, body any, cookieHeader string) *http.Response {
 	t.Helper()
 	return sendJSON(t, app, http.MethodPut, path, body, cookieHeader)
+}
+
+func deleteReq(t *testing.T, app *fiber.App, path, cookieHeader string) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodDelete, path, nil)
+	return do(t, app, req, cookieHeader, false)
 }
 
 func patchJSON(t *testing.T, app *fiber.App, path string, body any, cookieHeader string) *http.Response {

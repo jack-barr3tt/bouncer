@@ -1008,6 +1008,66 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getRevokeAccessCodeMutationOptions(options), queryClient);
     }
 
+export const deleteAccessCode = (
+    id: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<void>(
+      {url: `/api/access-codes/${id}`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getDeleteAccessCodeMutationKey = () => ['deleteAccessCode'] as const;
+
+export const getDeleteAccessCodeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccessCode>>, TError,DeleteAccessCodeMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAccessCode>>, TError,DeleteAccessCodeMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAccessCodeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAccessCode>>, DeleteAccessCodeMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAccessCode(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAccessCodeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAccessCode>>>
+
+    export type DeleteAccessCodeMutationError = ErrorType<ErrorResponse>
+    export type DeleteAccessCodeMutationVariables = {id: string}
+
+    export const useDeleteAccessCode = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccessCode>>, TError,DeleteAccessCodeMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAccessCode>>,
+        TError,
+        DeleteAccessCodeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAccessCodeMutationOptions(options), queryClient);
+    }
+
 export const getAccessCodeQR = (
     id: string,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
