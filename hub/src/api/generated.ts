@@ -76,6 +76,8 @@ export interface Session {
   nickname?: string;
   role?: SessionRole;
   apps: string[];
+  /** Apps this user session may share with a temporary access code. */
+  shareApps?: string[];
   expiresAt: string;
   /** Public URL of the homepage. */
   hub: string;
@@ -94,7 +96,10 @@ export interface User {
   username: string;
   role: UserRole;
   disabled: boolean;
+  /** Apps this account can open. */
   apps: string[];
+  /** Apps this account can open and share with a temporary access code. A subset of apps. */
+  shareApps: string[];
 }
 
 export interface UserList {
@@ -120,8 +125,14 @@ export interface UpdateUserRequest {
   role?: UpdateUserRequestRole;
 }
 
+export interface AppGrant {
+  slug: string;
+  /** When true, the account can open this app and share temporary access codes for it. When false, the account can only open it. */
+  canShare: boolean;
+}
+
 export interface AppListRequest {
-  slugs: string[];
+  grants: AppGrant[];
 }
 
 export interface AccessCode {
@@ -135,6 +146,9 @@ export interface AccessCode {
   /** @nullable */
   revokedAt?: string | null;
   apps: string[];
+  ownerId: string;
+  /** Username of the account that created this code. */
+  owner: string;
   createdAt: string;
 }
 
@@ -1006,6 +1020,66 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRevokeAccessCodeMutationOptions(options), queryClient);
+    }
+
+export const deleteAccessCode = (
+    id: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<void>(
+      {url: `/api/access-codes/${id}`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getDeleteAccessCodeMutationKey = () => ['deleteAccessCode'] as const;
+
+export const getDeleteAccessCodeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccessCode>>, TError,DeleteAccessCodeMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAccessCode>>, TError,DeleteAccessCodeMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAccessCodeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAccessCode>>, DeleteAccessCodeMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAccessCode(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAccessCodeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAccessCode>>>
+
+    export type DeleteAccessCodeMutationError = ErrorType<ErrorResponse>
+    export type DeleteAccessCodeMutationVariables = {id: string}
+
+    export const useDeleteAccessCode = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAccessCode>>, TError,DeleteAccessCodeMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAccessCode>>,
+        TError,
+        DeleteAccessCodeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAccessCodeMutationOptions(options), queryClient);
     }
 
 export const getAccessCodeQR = (

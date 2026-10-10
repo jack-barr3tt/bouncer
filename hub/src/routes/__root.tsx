@@ -7,6 +7,7 @@ import { theme } from '../theme.ts'
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { ThemeInit } from '../../.flowbite-react/init.tsx'
 import Sidebar from '../components/sidebar/Sidebar.tsx'
+import Toasts from '../toasts.tsx'
 import { useSession, useWatchAccess } from '../hooks/useSession.ts'
 import appCss from '../index.css?url'
 
@@ -74,6 +75,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <ThemeInit />
         <ThemeProvider theme={theme}>
           <MotionConfig reducedMotion="user">{children}</MotionConfig>
+          <Toasts />
         </ThemeProvider>
         <Scripts />
       </body>

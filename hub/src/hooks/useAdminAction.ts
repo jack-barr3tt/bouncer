@@ -1,5 +1,5 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { reportError } from '../toasts.tsx'
 
 const adminPaths = ['/api/users', '/api/access-codes', '/api/deploy', '/api/apps']
 
@@ -15,19 +15,17 @@ export function invalidateAdmin(queryClient: QueryClient) {
 
 export function useAdminAction() {
   const queryClient = useQueryClient()
-  const [error, setError] = useState('')
 
   async function run(action: () => Promise<unknown>) {
-    setError('')
     try {
       await action()
       await invalidateAdmin(queryClient)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Request failed.')
+      reportError(caught)
     }
   }
 
-  return { error, setError, run }
+  return { run }
 }
 
 export type AdminAction = ReturnType<typeof useAdminAction>['run']

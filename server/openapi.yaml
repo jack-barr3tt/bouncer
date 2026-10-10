@@ -142,7 +142,7 @@ paths:
               $ref: "#/components/schemas/AppListRequest"
       responses:
         "200":
-          description: Replaced app list.
+          description: Replaced app grants. Each app is view only, or view and share.
           content:
             application/json:
               schema:
@@ -160,7 +160,7 @@ paths:
       operationId: listAccessCodes
       responses:
         "200":
-          description: Access codes.
+          description: Access codes. An admin sees every code. Any other signed-in account sees the codes it owns.
           content:
             application/json:
               schema:
@@ -179,7 +179,7 @@ paths:
               $ref: "#/components/schemas/CreateAccessCodeRequest"
       responses:
         "201":
-          description: Created access code.
+          description: Created access code. The signed-in account owns it. An admin can share any app. Another account can share only apps an admin marked view and share.
           content:
             application/json:
               schema:
@@ -197,11 +197,25 @@ paths:
         - $ref: "#/components/parameters/Id"
       responses:
         "200":
-          description: Code revoked. Existing temporary accounts stay until they are revoked or the code expires.
+          description: Code revoked. An admin can revoke any code. The owner can revoke their own. Existing temporary accounts stay until they are revoked or the code expires.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccessCode"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/access-codes/{id}:
+    delete:
+      operationId: deleteAccessCode
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Code deleted. An admin can delete any code. The owner can delete their own. Temporary accounts and their sessions are removed, so anyone still signed in loses access immediately.
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -252,7 +266,7 @@ paths:
         - $ref: "#/components/parameters/Id"
       responses:
         "204":
-          description: Temporary account revoked and its sessions deleted.
+          description: Temporary account revoked and its sessions deleted. An admin can revoke any. The owner of its access code can revoke their own.
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -477,6 +491,11 @@ components:
           type: array
           items:
             type: string
+        shareApps:
+          type: array
+          description: Apps this user session may share with a temporary access code.
+          items:
+            type: string
         expiresAt:
           type: string
           format: date-time
@@ -485,7 +504,7 @@ components:
           description: Public URL of the homepage.
     User:
       type: object
-      required: [id, username, role, disabled, apps]
+      required: [id, username, role, disabled, apps, shareApps]
       properties:
         id:
           type: string
@@ -499,6 +518,12 @@ components:
           type: boolean
         apps:
           type: array
+          description: Apps this account can open.
+          items:
+            type: string
+        shareApps:
+          type: array
+          description: Apps this account can open and share with a temporary access code. A subset of apps.
           items:
             type: string
     UserList:
@@ -527,17 +552,26 @@ components:
         role:
           type: string
           enum: [admin, user]
+    AppGrant:
+      type: object
+      required: [slug, canShare]
+      properties:
+        slug:
+          type: string
+        canShare:
+          type: boolean
+          description: When true, the account can open this app and share temporary access codes for it. When false, the account can only open it.
     AppListRequest:
       type: object
-      required: [slugs]
+      required: [grants]
       properties:
-        slugs:
+        grants:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AppGrant"
     AccessCode:
       type: object
-      required: [id, code, label, url, expiresAt, maxSignups, signupCount, apps, createdAt]
+      required: [id, code, label, url, expiresAt, maxSignups, signupCount, apps, ownerId, owner, createdAt]
       properties:
         id:
           type: string
@@ -563,6 +597,12 @@ components:
           type: array
           items:
             type: string
+        ownerId:
+          type: string
+          format: uuid
+        owner:
+          type: string
+          description: Username of the account that created this code.
         createdAt:
           type: string
           format: date-time

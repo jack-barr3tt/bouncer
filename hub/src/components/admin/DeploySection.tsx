@@ -1,8 +1,9 @@
 import { format, parseISO } from 'date-fns'
-import { Alert, Button, Card, Label, TextInput } from 'flowbite-react'
+import { Button, Card, Label, TextInput } from 'flowbite-react'
 import { useState, type SubmitEvent } from 'react'
 import { useCloneRepo, useCreateApp, useGetDeploy, useRunDeploy } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
+import { reportError, useToastError } from '../../toasts.tsx'
 
 const shownTime = 'd MMM yyyy, HH:mm'
 
@@ -15,7 +16,7 @@ type DetectedApp = {
 }
 
 export default function DeploySection() {
-  const { error, setError, run } = useAdminAction()
+  const { run } = useAdminAction()
   const deployQuery = useGetDeploy({
     query: {
       refetchInterval: (query) => (query.state.data?.repos.some((repo) => repo.latest?.status === 'running') ? 2000 : false),
@@ -29,12 +30,10 @@ export default function DeploySection() {
   const runDeploy = useRunDeploy()
   const cloneRepo = useCloneRepo()
   const createApp = useCreateApp()
-  const loadError = deployQuery.error instanceof Error ? deployQuery.error.message : ''
-  const shownError = error || loadError
+  useToastError(deployQuery.error instanceof Error ? deployQuery.error.message : '')
 
   async function onClone(event: SubmitEvent) {
     event.preventDefault()
-    setError('')
     try {
       const result = await cloneRepo.mutateAsync({ data: { remote: cloneRemote, name: cloneName, branch: cloneBranch } })
       setDetected(
@@ -48,7 +47,7 @@ export default function DeploySection() {
       setCloneName('')
       setCloneBranch('main')
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Request failed.')
+      reportError(caught)
     }
   }
 
@@ -68,11 +67,6 @@ export default function DeploySection() {
   return (
     <section className="mt-10">
       <h2 className="text-xl font-semibold">Deploy</h2>
-      {shownError ? (
-        <Alert className="mt-4" color="failure">
-          {shownError}
-        </Alert>
-      ) : null}
       <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => void onClone(event)}>
         <div>
           <Label htmlFor="clone-remote">Git remote</Label>

@@ -43,13 +43,13 @@ A Vite app should set `base` to `'./'` and build with `npm run build`. Reserved 
 
 Set `ROUTING=subdomain` to serve an app at `https://<slug>.<host>/` instead of `/apps/<slug>/`, using the host of `PUBLIC_BASE_URL`. The homepage stays on that host. `/apps/<slug>/` redirects there. A wildcard DNS record and a wildcard certificate must cover one label under that host: `*.example.com` does not cover `hello.apps.example.com`. Localhost and IP addresses stay on path routing. A proxied app does not own `/api`; Bouncer serves that on the app host.
 
-A new account can open nothing until an admin turns apps on. Admins can open every app in `apps.yaml`. Delete `apps/hello` and its `apps.yaml` entry when you no longer want the sample.
+A new account can open nothing until an admin turns apps on. Admins can open every app in `apps.yaml`. For each other account, an admin chooses per app whether it can only open that app, or can also share temporary access codes for it. Delete `apps/hello` and its `apps.yaml` entry when you no longer want the sample.
 
 ## Accounts and guests
 
 People sign in on the homepage with a username and password. An admin creates those accounts.
 
-An access code is an invitation. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account for that browser. The same browser resumes the same temporary account. When that account can open only one app, the homepage sends them straight to it. Revoking the code stops new signups. Revoking the temporary account signs that person out.
+An access code is an invitation owned by the account that created it. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account for that browser. The same browser resumes the same temporary account. When that account can open only one app, the homepage sends them straight to it. Revoking the code stops new signups. An admin can revoke any code. The owner can revoke only their own. Revoking the temporary account signs that person out.
 
 ## In an app
 

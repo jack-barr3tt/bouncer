@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/jack-barr3tt/bouncer/internal/store"
 	"github.com/skip2/go-qrcode"
 )
@@ -69,10 +70,15 @@ func (s *Server) RedeemAccessCode(c fiber.Ctx) error {
 }
 
 func (s *Server) ListAccessCodes(c fiber.Ctx) error {
-	if _, err := s.requireAdmin(c); err != nil {
+	principal, err := s.requireUser(c)
+	if err != nil {
 		return err
 	}
-	codes, err := s.store.ListCodes(c.Context())
+	var owner *uuid.UUID
+	if principal.Role != "admin" {
+		owner = principal.UserID
+	}
+	codes, err := s.store.ListCodes(c.Context(), owner)
 	if err != nil {
 		return s.internal(c, err)
 	}
@@ -84,7 +90,7 @@ func (s *Server) ListAccessCodes(c fiber.Ctx) error {
 }
 
 func (s *Server) CreateAccessCode(c fiber.Ctx) error {
-	principal, err := s.requireAdmin(c)
+	principal, err := s.requireUser(c)
 	if err != nil {
 		return err
 	}
@@ -106,6 +112,9 @@ func (s *Server) CreateAccessCode(c fiber.Ctx) error {
 	if err != nil || len(slugs) == 0 {
 		return writeError(c, fiber.StatusBadRequest, "Choose at least one app.")
 	}
+	if principal.Role != "admin" && !covers(principal.ShareApps, slugs) {
+		return writeError(c, fiber.StatusForbidden, "You can only share apps you are allowed to share.")
+	}
 	code, err := s.store.CreateCode(c.Context(), *principal.UserID, label, req.ExpiresAt, req.MaxSignups, slugs)
 	if err != nil {
 		return s.internal(c, err)
@@ -114,7 +123,7 @@ func (s *Server) CreateAccessCode(c fiber.Ctx) error {
 }
 
 func (s *Server) RevokeAccessCode(c fiber.Ctx, id Id) error {
-	if _, err := s.requireAdmin(c); err != nil {
+	if _, _, err := s.ownedCode(c, id); err != nil {
 		return err
 	}
 	code, err := s.store.RevokeCode(c.Context(), id)
@@ -127,16 +136,27 @@ func (s *Server) RevokeAccessCode(c fiber.Ctx, id Id) error {
 	return c.JSON(s.codeJSON(c, code))
 }
 
-func (s *Server) GetAccessCodeQR(c fiber.Ctx, id Id) error {
-	if _, err := s.requireAdmin(c); err != nil {
+func (s *Server) DeleteAccessCode(c fiber.Ctx, id Id) error {
+	if _, _, err := s.ownedCode(c, id); err != nil {
 		return err
 	}
-	code, err := s.store.GetCode(c.Context(), id)
+	temps, err := s.store.DeleteCode(c.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		return writeError(c, fiber.StatusNotFound, "Code not found.")
 	}
 	if err != nil {
 		return s.internal(c, err)
+	}
+	for _, tempID := range temps {
+		s.broker.Publish("temp:"+tempID.String(), accessEvent("session_ended", nil))
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (s *Server) GetAccessCodeQR(c fiber.Ctx, id Id) error {
+	_, code, err := s.ownedCode(c, id)
+	if err != nil {
+		return err
 	}
 	png, err := qrcode.Encode(s.joinURL(c, code.Code), qrcode.Medium, 256)
 	if err != nil {
@@ -148,7 +168,7 @@ func (s *Server) GetAccessCodeQR(c fiber.Ctx, id Id) error {
 }
 
 func (s *Server) ListTemporaryAccounts(c fiber.Ctx, id Id) error {
-	if _, err := s.requireAdmin(c); err != nil {
+	if _, _, err := s.ownedCode(c, id); err != nil {
 		return err
 	}
 	accounts, err := s.store.ListTemps(c.Context(), id)
@@ -173,10 +193,18 @@ func (s *Server) ListTemporaryAccounts(c fiber.Ctx, id Id) error {
 }
 
 func (s *Server) RevokeTemporaryAccount(c fiber.Ctx, id Id) error {
-	if _, err := s.requireAdmin(c); err != nil {
+	principal, err := s.requireUser(c)
+	if err != nil {
 		return err
 	}
-	err := s.store.RevokeTemp(c.Context(), id)
+	owner, err := s.store.TempOwner(c.Context(), id)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !codeOwner(principal, owner)) {
+		return writeError(c, fiber.StatusNotFound, "Account not found.")
+	}
+	if err != nil {
+		return s.internal(c, err)
+	}
+	err = s.store.RevokeTemp(c.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		return writeError(c, fiber.StatusNotFound, "Account not found.")
 	}
@@ -202,8 +230,53 @@ func (s *Server) codeJSON(c fiber.Ctx, code store.Code) AccessCode {
 		SignupCount: code.SignupCount,
 		RevokedAt:   code.RevokedAt,
 		Apps:        apps,
+		OwnerId:     code.OwnerID,
+		Owner:       code.Owner,
 		CreatedAt:   code.CreatedAt,
 	}
+}
+
+func (s *Server) requireUser(c fiber.Ctx) (*store.Principal, error) {
+	principal, err := s.require(c)
+	if err != nil {
+		return nil, err
+	}
+	if principal.Kind != "user" || principal.UserID == nil {
+		return nil, writeError(c, fiber.StatusForbidden, "Sign in with a user account.")
+	}
+	return principal, nil
+}
+
+func (s *Server) ownedCode(c fiber.Ctx, id uuid.UUID) (*store.Principal, store.Code, error) {
+	principal, err := s.requireUser(c)
+	if err != nil {
+		return nil, store.Code{}, err
+	}
+	code, err := s.store.GetCode(c.Context(), id)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !codeOwner(principal, code.OwnerID)) {
+		return nil, store.Code{}, writeError(c, fiber.StatusNotFound, "Code not found.")
+	}
+	if err != nil {
+		return nil, store.Code{}, s.internal(c, err)
+	}
+	return principal, code, nil
+}
+
+func codeOwner(principal *store.Principal, owner uuid.UUID) bool {
+	return principal.Role == "admin" || (principal.UserID != nil && *principal.UserID == owner)
+}
+
+func covers(have, want []string) bool {
+	set := map[string]struct{}{}
+	for _, slug := range have {
+		set[slug] = struct{}{}
+	}
+	for _, slug := range want {
+		if _, ok := set[slug]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) joinURL(c fiber.Ctx, code string) string {

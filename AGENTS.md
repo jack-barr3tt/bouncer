@@ -35,9 +35,9 @@ App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE
 
 ## Auth
 
-People sign in on the hub with a username and password. An admin can create accounts. A new account can open nothing until an admin turns apps on. Admins can open every app in `apps.yaml`.
+People sign in on the hub with a username and password. An admin can create accounts. A new account can open nothing until an admin turns apps on. Admins can open every app in `apps.yaml`. For each other account, an admin chooses per app whether it can only open that app, or can also share temporary access codes for it.
 
-An access code is an invitation. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account tied to that browser fingerprint and IP. The same fingerprint resumes the same temporary account. A temporary account that can open only one app is sent straight to it from the homepage. Revoking the code stops new signups. Revoking a temporary account signs that person out.
+An access code is an invitation owned by the account that created it. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account tied to that browser fingerprint and IP. The same fingerprint resumes the same temporary account. A temporary account that can open only one app is sent straight to it from the homepage. Revoking the code stops new signups. An admin can revoke any code. The owner can revoke only their own. Revoking a temporary account signs that person out.
 
 The session cookie is `bouncer_session`. Apps learn the signed-in name from `@jack-barr3tt/bouncer-client` (`currentIdentity()`). They leave when access is revoked only if they call `watchAccess(slug)`.
 

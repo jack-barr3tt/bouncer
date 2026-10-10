@@ -243,6 +243,13 @@ func (s *Server) sessionJSON(p *store.Principal) Session {
 		role := SessionRole(p.Role)
 		out.Username = &name
 		out.Role = &role
+		if p.Role != "admin" {
+			share := p.ShareApps
+			if share == nil {
+				share = []string{}
+			}
+			out.ShareApps = &share
+		}
 	} else {
 		name := p.Nickname
 		out.Nickname = &name
@@ -256,11 +263,12 @@ func userJSON(user store.User) User {
 		apps = []string{}
 	}
 	return User{
-		Id:       user.ID,
-		Username: user.Username,
-		Role:     UserRole(user.Role),
-		Disabled: user.Disabled,
-		Apps:     apps,
+		Id:        user.ID,
+		Username:  user.Username,
+		Role:      UserRole(user.Role),
+		Disabled:  user.Disabled,
+		Apps:      apps,
+		ShareApps: shareApps(user),
 	}
 }
 
@@ -290,6 +298,33 @@ func bucketNames(buckets []store.Bucket) []string {
 		names[i] = bucket.Name
 	}
 	return names
+}
+
+func shareApps(user store.User) []string {
+	if user.ShareApps == nil {
+		return []string{}
+	}
+	return user.ShareApps
+}
+
+func (s *Server) grants(raw []AppGrant) ([]store.Grant, error) {
+	seen := map[string]struct{}{}
+	grants := []store.Grant{}
+	for _, grant := range raw {
+		slug := strings.TrimSpace(grant.Slug)
+		if slug == "" {
+			continue
+		}
+		if _, ok := seen[slug]; ok {
+			continue
+		}
+		if !s.site.Known(slug) {
+			return nil, errors.New("unknown app")
+		}
+		seen[slug] = struct{}{}
+		grants = append(grants, store.Grant{Slug: slug, CanShare: grant.CanShare})
+	}
+	return grants, nil
 }
 
 func (s *Server) knownSlugs(raw []string) ([]string, error) {

@@ -96,11 +96,11 @@ func (s *Server) SetUserApps(c fiber.Ctx, id Id) error {
 	if err := c.Bind().JSON(&req); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "Invalid request.")
 	}
-	slugs, err := s.knownSlugs(req.Slugs)
+	grants, err := s.grants(req.Grants)
 	if err != nil {
 		return writeError(c, fiber.StatusBadRequest, "Unknown app.")
 	}
-	user, err := s.store.SetUserApps(c.Context(), id, slugs)
+	user, err := s.store.SetUserApps(c.Context(), id, grants)
 	if errors.Is(err, store.ErrNotFound) {
 		return writeError(c, fiber.StatusNotFound, "User not found.")
 	}

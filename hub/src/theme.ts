@@ -63,11 +63,53 @@ export const theme = createTheme({
       },
     },
   },
+  modal: {
+    content: {
+      inner: 'relative flex max-h-[90dvh] flex-col rounded-3xl border border-pink-200/90 bg-linear-to-br from-white via-[#fff5f8] to-pink-100/80 shadow-[0_24px_60px_-36px_rgba(208,40,110,0.4)] dark:border-pink-300/20 dark:bg-[#120910] dark:bg-linear-to-br dark:from-[#1a0c14] dark:via-[#3a1024] dark:to-black dark:shadow-[0_24px_70px_-36px_rgba(255,45,138,0.9)]',
+    },
+    header: {
+      base: 'flex items-start justify-between rounded-t-3xl border-b border-pink-200 p-5 dark:border-pink-300/20',
+      title: 'text-xl font-medium text-pink-950 dark:text-pink-50',
+      close: {
+        base: 'ml-auto inline-flex items-center rounded-xl bg-transparent p-1.5 text-sm text-pink-800 hover:bg-pink-100 dark:text-pink-100 dark:hover:bg-pink-500/15',
+      },
+    },
+    body: {
+      base: 'flex-1 overflow-auto p-6 text-pink-900 dark:text-pink-50',
+    },
+    footer: {
+      base: 'flex items-center gap-3 rounded-b-3xl border-t border-pink-200 p-6 dark:border-pink-300/20',
+    },
+  },
   label: {
     root: {
       colors: {
         default: 'text-pink-900 dark:text-pink-100',
       },
+    },
+  },
+  table: {
+    root: {
+      base: 'w-full text-left text-sm text-pink-900 dark:text-pink-50',
+      shadow: 'hidden',
+      wrapper: 'relative overflow-hidden rounded-2xl border border-pink-200 dark:border-pink-300/20',
+    },
+    head: {
+      base: 'group/head text-xs font-semibold tracking-[0.14em] text-pink-800/80 uppercase dark:text-pink-200/70',
+      cell: {
+        base: 'bg-pink-100/80 px-4 py-3 dark:bg-pink-500/10',
+      },
+    },
+    body: {
+      base: 'group/body',
+      cell: {
+        base: 'border-t border-pink-200 px-4 py-3 dark:border-pink-300/20',
+      },
+    },
+    row: {
+      base: 'group/row',
+      hovered: 'hover:bg-pink-50/80 dark:hover:bg-pink-500/10',
+      striped: 'odd:bg-transparent even:bg-pink-50/60 odd:dark:bg-transparent even:dark:bg-white/5',
     },
   },
   select: {
@@ -93,6 +135,11 @@ export const theme = createTheme({
   textInput: {
     field: {
       input: {
+        sizes: {
+          sm: 'h-9 px-3 py-0 text-sm',
+          md: 'h-10 px-3 py-0 text-sm',
+          lg: 'h-12 px-4 py-0 text-base',
+        },
         withAddon: { off: 'rounded-2xl' },
         colors: { gray: field },
       },

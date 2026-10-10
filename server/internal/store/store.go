@@ -36,11 +36,17 @@ var (
 )
 
 type User struct {
-	ID       uuid.UUID
-	Username string
-	Role     string
-	Disabled bool
-	Apps     []string
+	ID        uuid.UUID
+	Username  string
+	Role      string
+	Disabled  bool
+	Apps      []string
+	ShareApps []string
+}
+
+type Grant struct {
+	Slug     string
+	CanShare bool
 }
 
 type Code struct {
@@ -52,6 +58,8 @@ type Code struct {
 	SignupCount int
 	RevokedAt   *time.Time
 	Apps        []string
+	OwnerID     uuid.UUID
+	Owner       string
 	CreatedAt   time.Time
 }
 
@@ -73,6 +81,7 @@ type Principal struct {
 	Nickname  string
 	Role      string
 	Apps      []string
+	ShareApps []string
 	ExpiresAt time.Time
 	Key       string
 }
@@ -244,6 +253,10 @@ func (s *Store) Principal(ctx context.Context, token string, registry []string) 
 			return &p, nil
 		}
 		p.Apps, err = s.userApps(ctx, *userID)
+		if err != nil {
+			return nil, err
+		}
+		p.ShareApps, err = s.shareApps(ctx, *userID)
 		return &p, err
 	}
 	if tempID == nil || tempRevoked != nil || codeExpires == nil || !codeExpires.After(time.Now()) {
@@ -268,7 +281,8 @@ func (s *Store) TouchTempIP(ctx context.Context, tempID uuid.UUID, ip string) er
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT u.id, u.username, u.role, u.disabled,
-			COALESCE(array_agg(a.slug ORDER BY a.slug) FILTER (WHERE a.slug IS NOT NULL), '{}')
+			COALESCE(array_agg(a.slug ORDER BY a.slug) FILTER (WHERE a.slug IS NOT NULL), '{}'),
+			COALESCE(array_agg(a.slug ORDER BY a.slug) FILTER (WHERE a.can_share), '{}')
 		FROM users u
 		LEFT JOIN user_apps a ON a.user_id = u.id
 		GROUP BY u.id
@@ -280,11 +294,14 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var user User
-		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Disabled, &user.Apps); err != nil {
+		if err := rows.Scan(&user.ID, &user.Username, &user.Role, &user.Disabled, &user.Apps, &user.ShareApps); err != nil {
 			return nil, err
 		}
 		if user.Apps == nil {
 			user.Apps = []string{}
+		}
+		if user.ShareApps == nil {
+			user.ShareApps = []string{}
 		}
 		users = append(users, user)
 	}
@@ -353,7 +370,7 @@ func (s *Store) UpdateUser(ctx context.Context, id uuid.UUID, password *string, 
 	return s.getUser(ctx, id)
 }
 
-func (s *Store) SetUserApps(ctx context.Context, id uuid.UUID, slugs []string) (User, error) {
+func (s *Store) SetUserApps(ctx context.Context, id uuid.UUID, grants []Grant) (User, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return User{}, err
@@ -369,8 +386,8 @@ func (s *Store) SetUserApps(ctx context.Context, id uuid.UUID, slugs []string) (
 	if _, err := tx.Exec(ctx, `DELETE FROM user_apps WHERE user_id = $1`, id); err != nil {
 		return User{}, err
 	}
-	for _, slug := range slugs {
-		if _, err := tx.Exec(ctx, `INSERT INTO user_apps (user_id, slug) VALUES ($1, $2)`, id, slug); err != nil {
+	for _, grant := range grants {
+		if _, err := tx.Exec(ctx, `INSERT INTO user_apps (user_id, slug, can_share) VALUES ($1, $2, $3)`, id, grant.Slug, grant.CanShare); err != nil {
 			return User{}, err
 		}
 	}
@@ -414,15 +431,24 @@ func (s *Store) CreateCode(ctx context.Context, createdBy uuid.UUID, label strin
 	return Code{}, fmt.Errorf("create access code: %w", last)
 }
 
-func (s *Store) ListCodes(ctx context.Context) ([]Code, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT c.id, c.code, c.label, c.expires_at, c.max_signups, c.revoked_at, c.created_at,
-			(SELECT count(*) FROM temporary_accounts t WHERE t.access_code_id = c.id),
-			COALESCE((
-				SELECT array_agg(a.slug ORDER BY a.slug) FROM access_code_apps a WHERE a.code_id = c.id
-			), '{}')
-		FROM access_codes c
-		ORDER BY c.created_at DESC`)
+const codeColumns = `
+	SELECT c.id, c.code, c.label, c.expires_at, c.max_signups, c.revoked_at, c.created_at,
+		(SELECT count(*) FROM temporary_accounts t WHERE t.access_code_id = c.id),
+		COALESCE((
+			SELECT array_agg(a.slug ORDER BY a.slug) FROM access_code_apps a WHERE a.code_id = c.id
+		), '{}'),
+		c.created_by, u.username
+	FROM access_codes c
+	JOIN users u ON u.id = c.created_by`
+
+func (s *Store) ListCodes(ctx context.Context, owner *uuid.UUID) ([]Code, error) {
+	query := codeColumns + ` ORDER BY c.created_at DESC`
+	args := []any{}
+	if owner != nil {
+		query = codeColumns + ` WHERE c.created_by = $1 ORDER BY c.created_at DESC`
+		args = append(args, *owner)
+	}
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -439,13 +465,7 @@ func (s *Store) ListCodes(ctx context.Context) ([]Code, error) {
 }
 
 func (s *Store) GetCode(ctx context.Context, id uuid.UUID) (Code, error) {
-	row := s.pool.QueryRow(ctx, `
-		SELECT c.id, c.code, c.label, c.expires_at, c.max_signups, c.revoked_at, c.created_at,
-			(SELECT count(*) FROM temporary_accounts t WHERE t.access_code_id = c.id),
-			COALESCE((
-				SELECT array_agg(a.slug ORDER BY a.slug) FROM access_code_apps a WHERE a.code_id = c.id
-			), '{}')
-		FROM access_codes c WHERE c.id = $1`, id)
+	row := s.pool.QueryRow(ctx, codeColumns+` WHERE c.id = $1`, id)
 	code, err := scanCode(row)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Code{}, ErrNotFound
@@ -465,6 +485,44 @@ func (s *Store) RevokeCode(ctx context.Context, id uuid.UUID) (Code, error) {
 		}
 	}
 	return s.GetCode(ctx, id)
+}
+
+func (s *Store) DeleteCode(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx, `SELECT id FROM temporary_accounts WHERE access_code_id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	var temps []uuid.UUID
+	for rows.Next() {
+		var tempID uuid.UUID
+		if err := rows.Scan(&tempID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		temps = append(temps, tempID)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM access_codes WHERE id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotFound
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return temps, nil
 }
 
 func (s *Store) ListTemps(ctx context.Context, codeID uuid.UUID) ([]TempAccount, error) {
@@ -492,6 +550,19 @@ func (s *Store) ListTemps(ctx context.Context, codeID uuid.UUID) ([]TempAccount,
 		accounts = append(accounts, account)
 	}
 	return accounts, rows.Err()
+}
+
+func (s *Store) TempOwner(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	var owner uuid.UUID
+	err := s.pool.QueryRow(ctx, `
+		SELECT c.created_by
+		FROM temporary_accounts t
+		JOIN access_codes c ON c.id = t.access_code_id
+		WHERE t.id = $1`, id).Scan(&owner)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	return owner, err
 }
 
 func (s *Store) RevokeTemp(ctx context.Context, id uuid.UUID) error {
@@ -627,7 +698,7 @@ func (s *Store) insertUser(ctx context.Context, username, password, role string)
 	if err != nil {
 		return User{}, err
 	}
-	user := User{ID: uuid.New(), Username: strings.TrimSpace(username), Role: role, Apps: []string{}}
+	user := User{ID: uuid.New(), Username: strings.TrimSpace(username), Role: role, Apps: []string{}, ShareApps: []string{}}
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO users (id, username, username_key, password_hash, role)
 		VALUES ($1, $2, $3, $4, $5)`,
@@ -649,11 +720,19 @@ func (s *Store) getUser(ctx context.Context, id uuid.UUID) (User, error) {
 		return User{}, err
 	}
 	user.Apps, err = s.userApps(ctx, id)
+	if err != nil {
+		return User{}, err
+	}
+	user.ShareApps, err = s.shareApps(ctx, id)
 	return user, err
 }
 
 func (s *Store) userApps(ctx context.Context, id uuid.UUID) ([]string, error) {
 	return s.slugs(ctx, `SELECT slug FROM user_apps WHERE user_id = $1 ORDER BY slug`, id)
+}
+
+func (s *Store) shareApps(ctx context.Context, id uuid.UUID) ([]string, error) {
+	return s.slugs(ctx, `SELECT slug FROM user_apps WHERE user_id = $1 AND can_share ORDER BY slug`, id)
 }
 
 func (s *Store) codeApps(ctx context.Context, id uuid.UUID) ([]string, error) {
@@ -683,7 +762,7 @@ type scanner interface {
 
 func scanCode(row scanner) (Code, error) {
 	var code Code
-	err := row.Scan(&code.ID, &code.Code, &code.Label, &code.ExpiresAt, &code.MaxSignups, &code.RevokedAt, &code.CreatedAt, &code.SignupCount, &code.Apps)
+	err := row.Scan(&code.ID, &code.Code, &code.Label, &code.ExpiresAt, &code.MaxSignups, &code.RevokedAt, &code.CreatedAt, &code.SignupCount, &code.Apps, &code.OwnerID, &code.Owner)
 	if code.Apps == nil {
 		code.Apps = []string{}
 	}

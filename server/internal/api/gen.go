@@ -107,13 +107,17 @@ func (e UserRole) Valid() bool {
 
 // AccessCode defines model for AccessCode.
 type AccessCode struct {
-	Apps        []string           `json:"apps"`
-	Code        string             `json:"code"`
-	CreatedAt   time.Time          `json:"createdAt"`
-	ExpiresAt   time.Time          `json:"expiresAt"`
-	Id          openapi_types.UUID `json:"id"`
-	Label       string             `json:"label"`
-	MaxSignups  int                `json:"maxSignups"`
+	Apps       []string           `json:"apps"`
+	Code       string             `json:"code"`
+	CreatedAt  time.Time          `json:"createdAt"`
+	ExpiresAt  time.Time          `json:"expiresAt"`
+	Id         openapi_types.UUID `json:"id"`
+	Label      string             `json:"label"`
+	MaxSignups int                `json:"maxSignups"`
+
+	// Owner Username of the account that created this code.
+	Owner       string             `json:"owner"`
+	OwnerId     openapi_types.UUID `json:"ownerId"`
 	RevokedAt   *time.Time         `json:"revokedAt,omitempty"`
 	SignupCount int                `json:"signupCount"`
 	Url         string             `json:"url"`
@@ -129,6 +133,13 @@ type AppCatalog struct {
 	Apps []AppInfo `json:"apps"`
 }
 
+// AppGrant defines model for AppGrant.
+type AppGrant struct {
+	// CanShare When true, the account can open this app and share temporary access codes for it. When false, the account can only open it.
+	CanShare bool   `json:"canShare"`
+	Slug     string `json:"slug"`
+}
+
 // AppInfo defines model for AppInfo.
 type AppInfo struct {
 	Description string `json:"description"`
@@ -140,7 +151,7 @@ type AppInfo struct {
 
 // AppListRequest defines model for AppListRequest.
 type AppListRequest struct {
-	Slugs []string `json:"slugs"`
+	Grants []AppGrant `json:"grants"`
 }
 
 // CloneApp defines model for CloneApp.
@@ -251,7 +262,10 @@ type Session struct {
 	Kind     SessionKind  `json:"kind"`
 	Nickname *string      `json:"nickname,omitempty"`
 	Role     *SessionRole `json:"role,omitempty"`
-	Username *string      `json:"username,omitempty"`
+
+	// ShareApps Apps this user session may share with a temporary access code.
+	ShareApps *[]string `json:"shareApps,omitempty"`
+	Username  *string   `json:"username,omitempty"`
 }
 
 // SessionKind defines model for Session.Kind.
@@ -287,11 +301,15 @@ type UpdateUserRequestRole string
 
 // User defines model for User.
 type User struct {
+	// Apps Apps this account can open.
 	Apps     []string           `json:"apps"`
 	Disabled bool               `json:"disabled"`
 	Id       openapi_types.UUID `json:"id"`
 	Role     UserRole           `json:"role"`
-	Username string             `json:"username"`
+
+	// ShareApps Apps this account can open and share with a temporary access code. A subset of apps.
+	ShareApps []string `json:"shareApps"`
+	Username  string   `json:"username"`
 }
 
 // UserRole defines model for User.Role.
@@ -352,6 +370,9 @@ type ServerInterface interface {
 
 	// (POST /api/access-codes/redeem)
 	RedeemAccessCode(c fiber.Ctx) error
+
+	// (DELETE /api/access-codes/{id})
+	DeleteAccessCode(c fiber.Ctx, id Id) error
 
 	// (GET /api/access-codes/{id}/accounts)
 	ListTemporaryAccounts(c fiber.Ctx, id Id) error
@@ -461,6 +482,35 @@ func (siw *ServerInterfaceWrapper) RedeemAccessCode(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.RedeemAccessCode(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteAccessCode operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAccessCode(c fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Params("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter id: %w", err).Error())
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.DeleteAccessCode(c, id)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -926,6 +976,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/api/access-codes", wrapper.CreateAccessCode)
 
 	router.Post(options.BaseURL+"/api/access-codes/:id/revoke", wrapper.RevokeAccessCode)
+
+	router.Delete(options.BaseURL+"/api/access-codes/:id", wrapper.DeleteAccessCode)
 
 	router.Get(options.BaseURL+"/api/access-codes/:id/qr", wrapper.GetAccessCodeQR)
 
