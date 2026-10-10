@@ -132,3 +132,49 @@ h2 {
 .dark .accent {
   color: #ff9dca;
 }
+
+html [data-sonner-toaster] {
+  font-family: var(--font-sans);
+  --border-radius: 1rem;
+}
+
+html [data-sonner-toaster][data-sonner-theme='light'] {
+  --normal-bg: #fff7fa;
+  --normal-border: #ffc9df;
+  --normal-text: #3d1228;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-text: #991b1b;
+  --success-bg: #fff1f7;
+  --success-border: #ffc9df;
+  --success-text: #8f0b47;
+}
+
+html [data-sonner-toaster][data-sonner-theme='dark'] {
+  --normal-bg: #140e13;
+  --normal-border: rgb(255 157 202 / 0.3);
+  --normal-text: #fff5f8;
+  --error-bg: #3a1218;
+  --error-border: rgb(248 113 113 / 0.45);
+  --error-text: #fee2e2;
+  --success-bg: #2a1020;
+  --success-border: rgb(255 157 202 / 0.4);
+  --success-text: #ffc9df;
+}
+
+html [data-sonner-toast][data-styled='true'] {
+  font-size: 0.875rem;
+  box-shadow: 0 18px 40px -24px rgba(208, 40, 110, 0.55);
+}
+
+html [data-sonner-toast][data-styled='true']:hover [data-close-button]:hover {
+  background: var(--normal-bg);
+  border-color: var(--normal-border);
+  color: var(--normal-text);
+}
+
+html [data-rich-colors='true'][data-sonner-toast][data-type='error']:hover [data-close-button]:hover {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-text);
+}

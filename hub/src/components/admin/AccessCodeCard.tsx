@@ -1,8 +1,9 @@
 import { format, parseISO } from 'date-fns'
-import { Alert, Button, Card, Modal, ModalBody, ModalFooter, ModalHeader } from 'flowbite-react'
+import { Button, Card, Modal, ModalBody, ModalFooter, ModalHeader } from 'flowbite-react'
 import { useState } from 'react'
 import { useDeleteAccessCode, useListTemporaryAccounts, useRevokeAccessCode, useRevokeTemporaryAccount, type AccessCode } from '../../api/generated.ts'
 import type { AdminAction } from '../../hooks/useAdminAction.ts'
+import { useToastError } from '../../toasts.tsx'
 
 const shownTime = 'd MMM yyyy, HH:mm'
 
@@ -13,7 +14,7 @@ export default function AccessCodeCard({ code, run }: { code: AccessCode; run: A
   const deleteCode = useDeleteAccessCode()
   const revokeAccount = useRevokeTemporaryAccount()
   const [confirming, setConfirming] = useState(false)
-  const loadError = accountsQuery.error instanceof Error ? accountsQuery.error.message : ''
+  useToastError(accountsQuery.error instanceof Error ? accountsQuery.error.message : '')
 
   function remove() {
     void run(() => deleteCode.mutateAsync({ id: code.id }))
@@ -32,13 +33,13 @@ export default function AccessCodeCard({ code, run }: { code: AccessCode; run: A
     <li>
       <Card>
         <p className="font-medium">{code.label || 'Untitled code'}</p>
+        <p className="soft text-sm">Owned by {code.owner}</p>
         <p className="font-mono text-sm">{code.url}</p>
         <p className="soft text-sm">
           {code.signupCount} / {code.maxSignups} signups
           {code.revokedAt ? ' · revoked' : ''} · expires {format(parseISO(code.expiresAt), shownTime)}
         </p>
         <img className="size-40 rounded-2xl bg-white p-2" src={`/api/access-codes/${code.id}/qr`} alt="" />
-        {loadError ? <Alert color="failure">{loadError}</Alert> : null}
         <div className="flex flex-wrap gap-3">
           <Button color="light" size="sm" onClick={() => void navigator.clipboard.writeText(code.url)}>
             Copy link

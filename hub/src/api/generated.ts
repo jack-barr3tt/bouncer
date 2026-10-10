@@ -76,6 +76,8 @@ export interface Session {
   nickname?: string;
   role?: SessionRole;
   apps: string[];
+  /** Apps this user session may share with a temporary access code. */
+  shareApps?: string[];
   expiresAt: string;
   /** Public URL of the homepage. */
   hub: string;
@@ -94,7 +96,10 @@ export interface User {
   username: string;
   role: UserRole;
   disabled: boolean;
+  /** Apps this account can open. */
   apps: string[];
+  /** Apps this account can open and share with a temporary access code. A subset of apps. */
+  shareApps: string[];
 }
 
 export interface UserList {
@@ -120,8 +125,14 @@ export interface UpdateUserRequest {
   role?: UpdateUserRequestRole;
 }
 
+export interface AppGrant {
+  slug: string;
+  /** When true, the account can open this app and share temporary access codes for it. When false, the account can only open it. */
+  canShare: boolean;
+}
+
 export interface AppListRequest {
-  slugs: string[];
+  grants: AppGrant[];
 }
 
 export interface AccessCode {
@@ -135,6 +146,9 @@ export interface AccessCode {
   /** @nullable */
   revokedAt?: string | null;
   apps: string[];
+  ownerId: string;
+  /** Username of the account that created this code. */
+  owner: string;
   createdAt: string;
 }
 

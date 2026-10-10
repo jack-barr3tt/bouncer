@@ -1,9 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { Alert } from 'flowbite-react'
 import AccessCodesSection from '../components/admin/AccessCodesSection.tsx'
 import AccountsSection from '../components/admin/AccountsSection.tsx'
 import DeploySection from '../components/admin/DeploySection.tsx'
 import { useApps, useSession } from '../hooks/useSession.ts'
+import { useToastError } from '../toasts.tsx'
 
 export const Route = createFileRoute('/admin')({
   component: Admin,
@@ -12,6 +12,7 @@ export const Route = createFileRoute('/admin')({
 function Admin() {
   const { session, isPending, error } = useSession()
   const { apps, isPending: appsPending, error: appsError } = useApps()
+  useToastError(error || appsError)
 
   if (isPending || (session?.role === 'admin' && appsPending)) {
     return <main className="mx-auto max-w-3xl px-4 py-8" />
@@ -32,11 +33,6 @@ function Admin() {
     <main className="mx-auto max-w-3xl px-4 py-8">
       <p className="accent text-xs font-semibold tracking-[0.22em] uppercase">Site</p>
       <h1 className="mt-2 text-5xl font-extrabold">Admin</h1>
-      {error || appsError ? (
-        <Alert className="mt-4" color="failure">
-          {error || appsError}
-        </Alert>
-      ) : null}
       <DeploySection />
       <AccountsSection apps={apps} />
       <AccessCodesSection apps={apps} />

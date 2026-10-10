@@ -101,7 +101,7 @@ func TestLoginGrantAndCode(t *testing.T) {
 		t.Fatalf("join page: %d %s", page.StatusCode, readBody(page))
 	}
 
-	grants := putJSON(t, app, "/api/users/"+user.ID+"/apps", map[string]any{"slugs": []string{"hello"}}, adminCookie)
+	grants := putJSON(t, app, "/api/users/"+user.ID+"/apps", map[string]any{"grants": []map[string]any{{"slug": "hello", "canShare": false}}}, adminCookie)
 	if grants.StatusCode != http.StatusOK {
 		t.Fatalf("grants: %d %s", grants.StatusCode, readBody(grants))
 	}
@@ -276,6 +276,138 @@ func TestDeleteAccessCodeEndsSessions(t *testing.T) {
 	unknown := deleteReq(t, app, "/api/access-codes/"+code.ID, admin)
 	if unknown.StatusCode != http.StatusNotFound {
 		t.Fatalf("second delete: %d %s", unknown.StatusCode, readBody(unknown))
+	}
+}
+
+func TestUserSharesOwnedCodes(t *testing.T) {
+	app := newConfiguredApp(t, configuredApp{registry: "apps:\n  - slug: hello\n    name: Hello\n    description: Hi\n    path: /apps/hello/\n    icon: Hi\n  - slug: notes\n    name: Notes\n    description: Hi\n    path: /apps/notes/\n    icon: N\n"})
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+	created := postJSON(t, app, "/api/users", map[string]string{"username": "sam", "password": "password2"}, admin)
+	var sam struct {
+		ID        string   `json:"id"`
+		ShareApps []string `json:"shareApps"`
+	}
+	decode(t, created, &sam)
+	if len(sam.ShareApps) != 0 {
+		t.Fatal("new account can share")
+	}
+	putJSON(t, app, "/api/users/"+sam.ID+"/apps", map[string]any{"grants": []map[string]any{{"slug": "hello", "canShare": false}}}, admin)
+	samCookie := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "sam", "password": "password2"}, ""))
+	expires := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+
+	blocked := postJSON(t, app, "/api/access-codes", map[string]any{
+		"appSlugs": []string{"hello"}, "expiresAt": expires, "maxSignups": 1,
+	}, samCookie)
+	if blocked.StatusCode != http.StatusForbidden {
+		t.Fatalf("share off: %d %s", blocked.StatusCode, readBody(blocked))
+	}
+
+	adminCode := postJSON(t, app, "/api/access-codes", map[string]any{
+		"label": "admin", "appSlugs": []string{"notes"}, "expiresAt": expires, "maxSignups": 1,
+	}, admin)
+	var owned struct {
+		ID    string `json:"id"`
+		Owner string `json:"owner"`
+	}
+	decode(t, adminCode, &owned)
+	if owned.Owner != "admin" {
+		t.Fatalf("admin owner: %+v", owned)
+	}
+	if postJSON(t, app, "/api/access-codes/"+owned.ID+"/revoke", map[string]string{}, samCookie).StatusCode != http.StatusNotFound {
+		t.Fatal("user revoked an admin code")
+	}
+	listed := readBody(get(t, app, "/api/access-codes", samCookie, false))
+	if strings.Contains(listed, owned.ID) {
+		t.Fatalf("user listed someone else's code: %s", listed)
+	}
+
+	shared := putJSON(t, app, "/api/users/"+sam.ID+"/apps", map[string]any{"grants": []map[string]any{
+		{"slug": "hello", "canShare": true},
+		{"slug": "notes", "canShare": false},
+	}}, admin)
+	if shared.StatusCode != http.StatusOK || !strings.Contains(readBody(shared), `"shareApps":["hello"]`) {
+		t.Fatalf("enable share: %d %s", shared.StatusCode, readBody(shared))
+	}
+	session := get(t, app, "/api/session", samCookie, false)
+	if !strings.Contains(readBody(session), `"shareApps":["hello"]`) {
+		t.Fatalf("session share: %s", readBody(session))
+	}
+	outside := postJSON(t, app, "/api/access-codes", map[string]any{
+		"appSlugs": []string{"notes"}, "expiresAt": expires, "maxSignups": 1,
+	}, samCookie)
+	if outside.StatusCode != http.StatusForbidden {
+		t.Fatalf("ungranted app: %d %s", outside.StatusCode, readBody(outside))
+	}
+
+	made := postJSON(t, app, "/api/access-codes", map[string]any{
+		"label": "visit", "appSlugs": []string{"hello"}, "expiresAt": expires, "maxSignups": 2,
+	}, samCookie)
+	if made.StatusCode != http.StatusCreated {
+		t.Fatalf("create: %d %s", made.StatusCode, readBody(made))
+	}
+	var code struct {
+		ID    string `json:"id"`
+		Owner string `json:"owner"`
+		URL   string `json:"url"`
+	}
+	decode(t, made, &code)
+	if code.Owner != "sam" {
+		t.Fatalf("owner: %+v", code)
+	}
+	joinCode := code.URL[strings.LastIndex(code.URL, "/")+1:]
+	joined := postJSON(t, app, "/api/access-codes/redeem", map[string]string{
+		"code": joinCode, "nickname": "Ada", "fingerprint": "browser-a",
+	}, "")
+	var accounts struct {
+		Accounts []struct {
+			ID string `json:"id"`
+		} `json:"accounts"`
+	}
+	decode(t, get(t, app, "/api/access-codes/"+code.ID+"/accounts", samCookie, false), &accounts)
+	if len(accounts.Accounts) != 1 {
+		t.Fatalf("accounts: %+v", accounts.Accounts)
+	}
+
+	lea := postJSON(t, app, "/api/users", map[string]string{"username": "lea", "password": "password3"}, admin)
+	var other struct {
+		ID string `json:"id"`
+	}
+	decode(t, lea, &other)
+	putJSON(t, app, "/api/users/"+other.ID+"/apps", map[string]any{"grants": []map[string]any{{"slug": "hello", "canShare": true}}}, admin)
+	leaCookie := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "lea", "password": "password3"}, ""))
+	if postJSON(t, app, "/api/access-codes/"+code.ID+"/revoke", map[string]string{}, leaCookie).StatusCode != http.StatusNotFound {
+		t.Fatal("another user revoked the code")
+	}
+	if postJSON(t, app, "/api/temporary-accounts/"+accounts.Accounts[0].ID+"/revoke", map[string]string{}, leaCookie).StatusCode != http.StatusNotFound {
+		t.Fatal("another user revoked the guest")
+	}
+
+	revokedGuest := postJSON(t, app, "/api/temporary-accounts/"+accounts.Accounts[0].ID+"/revoke", map[string]string{}, samCookie)
+	if revokedGuest.StatusCode != http.StatusNoContent {
+		t.Fatalf("owner revoke guest: %d %s", revokedGuest.StatusCode, readBody(revokedGuest))
+	}
+	if get(t, app, "/api/session", cookie(t, joined), false).StatusCode != http.StatusUnauthorized {
+		t.Fatal("guest stayed signed in")
+	}
+
+	byAdmin := postJSON(t, app, "/api/access-codes/"+code.ID+"/revoke", map[string]string{}, admin)
+	if byAdmin.StatusCode != http.StatusOK {
+		t.Fatalf("admin revoke: %d %s", byAdmin.StatusCode, readBody(byAdmin))
+	}
+	again := postJSON(t, app, "/api/access-codes", map[string]any{
+		"appSlugs": []string{"hello"}, "expiresAt": expires, "maxSignups": 1,
+	}, samCookie)
+	var second struct {
+		ID string `json:"id"`
+	}
+	decode(t, again, &second)
+	if deleteReq(t, app, "/api/access-codes/"+second.ID, samCookie).StatusCode != http.StatusNoContent {
+		t.Fatal("owner could not delete")
+	}
+	if postJSON(t, app, "/api/access-codes/redeem", map[string]string{
+		"code": joinCode, "nickname": "Bea", "fingerprint": "browser-b",
+	}, "").StatusCode != http.StatusUnauthorized {
+		t.Fatal("revoked code still joined")
 	}
 }
 

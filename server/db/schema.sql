@@ -5,7 +5,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict lP5b2o0dQbRnjFCUcIuol1tEKKVAiVIWM7fRklfUAmSWeaQcpbQOc7LF3mw0ZiH
+\restrict xgfGezfXjFVBEGuaAXKthbrtedyYNROEVN6MmtbNG7Dnp3x1PNtcc0UPfvU9Cex
 
 -- Dumped from database version 17.11 (Debian 17.11-1.pgdg13+2)
 -- Dumped by pg_dump version 17.11 (Debian 17.11-1.pgdg13+2)
@@ -128,7 +128,8 @@ CREATE TABLE public.temporary_accounts (
 
 CREATE TABLE public.user_apps (
     user_id uuid NOT NULL,
-    slug text NOT NULL
+    slug text NOT NULL,
+    can_share boolean DEFAULT false NOT NULL
 );
 
 
@@ -318,5 +319,5 @@ ALTER TABLE ONLY public.user_apps
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lP5b2o0dQbRnjFCUcIuol1tEKKVAiVIWM7fRklfUAmSWeaQcpbQOc7LF3mw0ZiH
+\unrestrict xgfGezfXjFVBEGuaAXKthbrtedyYNROEVN6MmtbNG7Dnp3x1PNtcc0UPfvU9Cex
 

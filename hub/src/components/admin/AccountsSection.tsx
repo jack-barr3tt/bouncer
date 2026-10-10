@@ -1,18 +1,18 @@
-import { Alert, Button, Label, TextInput } from 'flowbite-react'
+import { Button, Label, TextInput } from 'flowbite-react'
 import { useState, type SubmitEvent } from 'react'
 import { useCreateUser, useListUsers, type AppInfo } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
+import { useToastError } from '../../toasts.tsx'
 import UserCard from './UserCard.tsx'
 
 export default function AccountsSection({ apps }: { apps: AppInfo[] }) {
-  const { error, run } = useAdminAction()
+  const { run } = useAdminAction()
   const usersQuery = useListUsers()
   const users = usersQuery.data?.users ?? []
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const createUser = useCreateUser()
-  const loadError = usersQuery.error instanceof Error ? usersQuery.error.message : ''
-  const shownError = error || loadError
+  useToastError(usersQuery.error instanceof Error ? usersQuery.error.message : '')
 
   async function onCreateUser(event: SubmitEvent) {
     event.preventDefault()
@@ -26,11 +26,6 @@ export default function AccountsSection({ apps }: { apps: AppInfo[] }) {
   return (
     <section className="mt-10">
       <h2 className="text-xl font-semibold">Accounts</h2>
-      {shownError ? (
-        <Alert className="mt-4" color="failure">
-          {shownError}
-        </Alert>
-      ) : null}
       <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => void onCreateUser(event)}>
         <div>
           <Label htmlFor="new-username">Username</Label>

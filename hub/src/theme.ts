@@ -88,6 +88,30 @@ export const theme = createTheme({
       },
     },
   },
+  table: {
+    root: {
+      base: 'w-full text-left text-sm text-pink-900 dark:text-pink-50',
+      shadow: 'hidden',
+      wrapper: 'relative overflow-hidden rounded-2xl border border-pink-200 dark:border-pink-300/20',
+    },
+    head: {
+      base: 'group/head text-xs font-semibold tracking-[0.14em] text-pink-800/80 uppercase dark:text-pink-200/70',
+      cell: {
+        base: 'bg-pink-100/80 px-4 py-3 dark:bg-pink-500/10',
+      },
+    },
+    body: {
+      base: 'group/body',
+      cell: {
+        base: 'border-t border-pink-200 px-4 py-3 dark:border-pink-300/20',
+      },
+    },
+    row: {
+      base: 'group/row',
+      hovered: 'hover:bg-pink-50/80 dark:hover:bg-pink-500/10',
+      striped: 'odd:bg-transparent even:bg-pink-50/60 odd:dark:bg-transparent even:dark:bg-white/5',
+    },
+  },
   select: {
     field: {
       select: {
@@ -111,6 +135,11 @@ export const theme = createTheme({
   textInput: {
     field: {
       input: {
+        sizes: {
+          sm: 'h-9 px-3 py-0 text-sm',
+          md: 'h-10 px-3 py-0 text-sm',
+          lg: 'h-12 px-4 py-0 text-base',
+        },
         withAddon: { off: 'rounded-2xl' },
         colors: { gray: field },
       },

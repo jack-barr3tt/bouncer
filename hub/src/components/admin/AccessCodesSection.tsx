@@ -1,8 +1,9 @@
 import { addDays, addHours, format, formatISO, parse } from 'date-fns'
-import { Alert, Button, Card, Checkbox, Label, TextInput } from 'flowbite-react'
+import { Button, Card, Checkbox, Label, TextInput } from 'flowbite-react'
 import { useState, useSyncExternalStore, type SubmitEvent } from 'react'
 import { useCreateAccessCode, useListAccessCodes, type AppInfo } from '../../api/generated.ts'
 import { useAdminAction } from '../../hooks/useAdminAction.ts'
+import { useToastError } from '../../toasts.tsx'
 import AccessCodeCard from './AccessCodeCard.tsx'
 
 const localInput = "yyyy-MM-dd'T'HH:mm"
@@ -21,8 +22,8 @@ const expiryPresets = [
   { label: '7 days', at: (now: Date) => addDays(now, 7) },
 ]
 
-export default function AccessCodesSection({ apps }: { apps: AppInfo[] }) {
-  const { error, run } = useAdminAction()
+export default function AccessCodesSection({ apps, heading = 'Access codes' }: { apps: AppInfo[]; heading?: string }) {
+  const { run } = useAdminAction()
   const codesQuery = useListAccessCodes()
   const codes = codesQuery.data?.codes ?? []
   const [label, setLabel] = useState('')
@@ -36,8 +37,7 @@ export default function AccessCodesSection({ apps }: { apps: AppInfo[] }) {
   const expiry = expires ?? suggested
   const [codeApps, setCodeApps] = useState<string[]>([])
   const createCode = useCreateAccessCode()
-  const loadError = codesQuery.error instanceof Error ? codesQuery.error.message : ''
-  const shownError = error || loadError
+  useToastError(codesQuery.error instanceof Error ? codesQuery.error.message : '')
 
   async function onCreateCode(event: SubmitEvent) {
     event.preventDefault()
@@ -61,12 +61,7 @@ export default function AccessCodesSection({ apps }: { apps: AppInfo[] }) {
 
   return (
     <section className="mt-12">
-      <h2 className="text-xl font-semibold">Access codes</h2>
-      {shownError ? (
-        <Alert className="mt-4" color="failure">
-          {shownError}
-        </Alert>
-      ) : null}
+      <h2 className="text-xl font-semibold">{heading}</h2>
       <Card className="mt-4">
         <form className="flex flex-col gap-4" onSubmit={(event) => void onCreateCode(event)}>
           <div>
