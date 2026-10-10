@@ -2,8 +2,83 @@
 @import "flowbite-react/plugin/tailwindcss";
 @source "../.flowbite-react/class-list.json";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Syne", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+  --primary-50: #fff1f7;
+  --primary-100: #ffe4ef;
+  --primary-200: #ffc9df;
+  --primary-300: #ff9dca;
+  --primary-400: #ff61a8;
+  --primary-500: #ff2d8a;
+  --primary-600: #f01274;
+  --primary-700: #d10560;
+  --primary-800: #ad0750;
+  --primary-900: #8f0b47;
+  --pink-50: #fff1f7;
+  --pink-100: #ffe4ef;
+  --pink-200: #ffc9df;
+  --pink-300: #ff9dca;
+  --pink-400: #ff61a8;
+  --pink-500: #ff2d8a;
+  --pink-600: #f01274;
+  --pink-700: #d10560;
+  --pink-800: #ad0750;
+  --pink-900: #8f0b47;
+  --gray-50: #f8f1f4;
+  --gray-100: #efe4ea;
+  --gray-200: #dccad4;
+  --gray-300: #e7cfd9;
+  --gray-400: #c9a3b6;
+  --gray-500: #a88898;
+  --gray-600: #3a2a34;
+  --gray-700: #241820;
+  --gray-800: #140e13;
+  --gray-900: #09070a;
+}
+
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  min-height: 100svh;
+  font-family: var(--font-sans);
+  color: #fff5f8;
+  background-color: #07060a;
+  background-image:
+    radial-gradient(920px 540px at 112% -8%, rgba(255, 45, 138, 0.42), transparent 56%),
+    radial-gradient(720px 500px at -12% 108%, rgba(176, 24, 110, 0.36), transparent 52%),
+    radial-gradient(480px 320px at 46% 18%, rgba(255, 140, 190, 0.1), transparent 62%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image: radial-gradient(rgba(255, 186, 214, 0.22) 0.6px, transparent 0.65px);
+  background-size: 3px 3px;
+  mix-blend-mode: soft-light;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.04em;
+}
+
+.panel-grid {
+  background-image:
+    linear-gradient(rgba(255, 45, 138, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 45, 138, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: center;
 }

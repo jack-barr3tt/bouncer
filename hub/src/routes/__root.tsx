@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import { ThemeProvider } from 'flowbite-react'
+import { MotionConfig } from 'motion/react'
+import { theme } from '../theme.ts'
 import { useState, type ReactNode } from 'react'
 import { ThemeInit } from '../../.flowbite-react/init.tsx'
 import Sidebar from '../components/sidebar/Sidebar.tsx'
@@ -16,6 +18,12 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap',
+      },
       { rel: 'stylesheet', href: appCss },
     ],
   }),
@@ -52,13 +60,15 @@ function AccessWatch() {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body suppressHydrationWarning>
         <ThemeInit />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider theme={theme}>
+          <MotionConfig reducedMotion="user">{children}</MotionConfig>
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

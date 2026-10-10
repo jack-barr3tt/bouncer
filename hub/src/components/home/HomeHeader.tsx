@@ -1,3 +1,4 @@
+import { Badge } from 'flowbite-react'
 import { useApps, useSession } from '../../hooks/useSession.ts'
 
 export default function HomeHeader() {
@@ -6,10 +7,10 @@ export default function HomeHeader() {
 
   return (
     <header className="flex max-w-xl flex-col gap-3">
-      <p className="text-sm font-medium text-stone-500">Personal</p>
-      <h1 className="text-4xl font-semibold tracking-tight">Apps</h1>
+      <p className="text-xs font-semibold tracking-[0.22em] text-pink-300 uppercase">Personal</p>
+      <h1 className="text-5xl font-extrabold">Apps</h1>
       {!isPending ? (
-        <p className="text-base text-stone-600">
+        <p className="text-base text-pink-100/75">
           {session?.kind === 'temporary'
             ? `Signed in as ${session.nickname}.`
             : session
@@ -18,7 +19,9 @@ export default function HomeHeader() {
         </p>
       ) : null}
       {session && apps.length > 0 ? (
-        <p className="text-sm text-stone-500">{apps.length === 1 ? '1 app' : `${apps.length} apps`}</p>
+        <Badge className="w-fit" color="pink">
+          {apps.length === 1 ? '1 app' : `${apps.length} apps`}
+        </Badge>
       ) : null}
     </header>
   )

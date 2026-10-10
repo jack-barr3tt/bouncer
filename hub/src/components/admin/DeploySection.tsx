@@ -198,18 +198,20 @@ export default function DeploySection() {
                       {repo.latest.finishedAt ? ` · ${format(parseISO(repo.latest.finishedAt), shownTime)}` : ''}
                     </p>
                     {repo.latest.log ? (
-                      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-stone-600">{repo.latest.log}</pre>
+                      <pre className="mt-2 max-h-48 overflow-auto rounded-2xl border border-pink-300/15 bg-black/40 p-3 whitespace-pre-wrap text-xs text-pink-100/70">
+                        {repo.latest.log}
+                      </pre>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-sm text-stone-600">No deploys yet.</p>
+                  <p className="text-sm text-pink-100/70">No deploys yet.</p>
                 )}
               </Card>
             ))}
           </div>
         </div>
       ) : (
-        <p className="mt-4 text-sm text-stone-600">Git deploy is off until a clone under apps/ is registered, or GIT_REMOTE is set.</p>
+        <p className="mt-4 text-sm text-pink-100/70">Git deploy is off until a clone under apps/ is registered, or GIT_REMOTE is set.</p>
       )}
     </section>
   )
