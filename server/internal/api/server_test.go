@@ -75,8 +75,8 @@ func TestLoginGrantAndCode(t *testing.T) {
 	samLogin := postJSON(t, app, "/api/login", map[string]string{"username": "sam", "password": "password2"}, "")
 	samCookie := cookie(t, samLogin)
 	denied := get(t, app, "/apps/hello/", samCookie, true)
-	if denied.StatusCode != http.StatusForbidden {
-		t.Fatalf("ungranted app: %d", denied.StatusCode)
+	if denied.StatusCode != http.StatusFound || denied.Header.Get("Location") != "/" {
+		t.Fatalf("ungranted app: %d %s", denied.StatusCode, denied.Header.Get("Location"))
 	}
 	hidden := get(t, app, "/api/apps", samCookie, false)
 	hiddenBody := readBody(hidden)

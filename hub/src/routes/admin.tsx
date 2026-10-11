@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Navigate, createFileRoute } from '@tanstack/react-router'
 import AccessCodesSection from '../components/admin/AccessCodesSection.tsx'
 import AccountsSection from '../components/admin/AccountsSection.tsx'
 import AppsSection from '../components/admin/AppsSection.tsx'
@@ -19,15 +19,8 @@ function Admin() {
     return <main className="mx-auto max-w-3xl px-4 py-8" />
   }
 
-  if (!session || session.role !== 'admin') {
-    return (
-      <main className="mx-auto max-w-md px-4 py-8">
-        <p className="soft">Admin is only available to an admin account.</p>
-        <Link className="accent mt-4 inline-block text-sm font-medium underline" to={session ? '/' : '/login'}>
-          {session ? 'All apps' : 'Sign in'}
-        </Link>
-      </main>
-    )
+  if (session?.role !== 'admin') {
+    return <Navigate to="/" replace />
   }
 
   return (
