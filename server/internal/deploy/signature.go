@@ -121,27 +121,36 @@ func (s *Service) hookTarget(ref string, urls []string) (string, string, bool) {
 			break
 		}
 	}
-	if s.sourceMode() {
-		repos, err := s.discover()
-		if err != nil {
+	repos, err := s.discover()
+	if err != nil {
+		repos = nil
+		if s.cfg.Remote == "" {
 			return "", "", false
 		}
-		for _, repo := range repos {
-			if repo.Remote == "" || repo.Branch == "" || ref != "refs/heads/"+repo.Branch {
-				continue
+	}
+	tracked := 0
+	for _, repo := range repos {
+		if repo.Branch != "" && repo.Remote != "" {
+			tracked++
+		}
+	}
+	for _, repo := range repos {
+		if repo.Remote == "" || repo.Branch == "" || ref != "refs/heads/"+repo.Branch {
+			continue
+		}
+		if !present {
+			if tracked == 1 && s.cfg.Remote == "" {
+				return repo.Remote, repo.Branch, true
 			}
-			if !present {
-				if len(repos) == 1 {
-					return repo.Remote, repo.Branch, true
-				}
-				continue
-			}
-			for _, item := range urls {
-				if sameRemote(repo.Remote, item) {
-					return repo.Remote, repo.Branch, true
-				}
+			continue
+		}
+		for _, item := range urls {
+			if sameRemote(repo.Remote, item) {
+				return repo.Remote, repo.Branch, true
 			}
 		}
+	}
+	if s.cfg.Remote == "" {
 		return "", "", false
 	}
 	if present {

@@ -17,6 +17,7 @@ type Repo struct {
 	KeyFile    string
 	RuntimeDir string
 	script     string
+	Ambient    bool
 }
 
 func (r *Repo) Sync(ctx context.Context, sha string) (string, error) {
@@ -40,6 +41,21 @@ func (r *Repo) Sync(ctx context.Context, sha string) (string, error) {
 		}
 	} else if _, err := r.git(ctx, r.Dir, "remote", "set-url", "origin", r.Remote); err != nil {
 		return "", err
+	}
+	if r.Branch == "" {
+		if !validSHA(sha) {
+			return "", fmt.Errorf("commit is required")
+		}
+		if _, err := r.git(ctx, r.Dir, "fetch", "origin", sha); err != nil {
+			return "", fmt.Errorf("fetch %s: %w", sha, err)
+		}
+		if _, err := r.git(ctx, r.Dir, "checkout", "--detach", "--force", sha); err != nil {
+			return "", err
+		}
+		if _, err := r.git(ctx, r.Dir, "clean", "-fdx"); err != nil {
+			return "", err
+		}
+		return r.rev(ctx, "HEAD")
 	}
 	ref := "refs/heads/" + r.Branch
 	remoteRef := "refs/remotes/origin/" + r.Branch
@@ -124,7 +140,7 @@ func (r *Repo) prepareSSH() error {
 	info, err := os.Stat(r.KeyFile)
 	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
 		r.script = ""
-		if sshRemote(r.Remote) {
+		if sshRemote(r.Remote) && !r.Ambient {
 			return fmt.Errorf("deploy key is missing")
 		}
 		return nil

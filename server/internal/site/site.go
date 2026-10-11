@@ -14,6 +14,20 @@ type App struct {
 	Icon        string `mapstructure:"icon" json:"icon"`
 	Source      string `mapstructure:"source" json:"source,omitempty"`
 	Upstream    string `mapstructure:"upstream" json:"upstream,omitempty"`
+	Repo        string `mapstructure:"repo" json:"repo,omitempty"`
+	Dir         string `mapstructure:"dir" json:"dir,omitempty"`
+}
+
+type RepoRef struct {
+	Name   string `mapstructure:"name" json:"name"`
+	Remote string `mapstructure:"remote" json:"remote"`
+	Commit string `mapstructure:"commit" json:"commit,omitempty"`
+	Branch string `mapstructure:"branch" json:"branch,omitempty"`
+}
+
+type Registry struct {
+	Repos []RepoRef
+	Apps  []App
 }
 
 type Site struct {
@@ -57,10 +71,16 @@ func (s *Site) AppDir(slug string) string {
 	base := filepath.Join(s.root, "apps", slug)
 	if apps, err := s.Apps(); err == nil {
 		for _, app := range apps {
-			if app.Slug == slug && app.Source != "" {
-				base = filepath.Join(s.root, filepath.FromSlash(app.Source))
-				break
+			if app.Slug != slug {
+				continue
 			}
+			if app.Repo != "" {
+				return filepath.Join(s.root, "apps", slug, "dist")
+			}
+			if app.Source != "" {
+				base = filepath.Join(s.root, filepath.FromSlash(app.Source))
+			}
+			break
 		}
 	}
 	dist := filepath.Join(base, "dist")

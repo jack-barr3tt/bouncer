@@ -342,22 +342,22 @@ paths:
           $ref: "#/components/responses/Error"
         "404":
           $ref: "#/components/responses/Error"
-  /api/deploy/clones:
+  /api/deploy/repos/preview:
     post:
-      operationId: cloneRepo
+      operationId: previewRepo
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CloneRequest"
+              $ref: "#/components/schemas/RepoPreviewRequest"
       responses:
-        "201":
-          description: Repository cloned into apps/.
+        "200":
+          description: Apps found in the repository. Nothing is written to the site.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CloneResult"
+                $ref: "#/components/schemas/RepoPreview"
         "400":
           $ref: "#/components/responses/Error"
         "401":
@@ -365,6 +365,24 @@ paths:
         "403":
           $ref: "#/components/responses/Error"
         "404":
+          $ref: "#/components/responses/Error"
+  /api/deploy/repos:
+    post:
+      operationId: addRepo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddRepoRequest"
+      responses:
+        "204":
+          description: Repository and apps added to apps.yaml.
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
           $ref: "#/components/responses/Error"
   /api/apps:
     get:
@@ -664,7 +682,7 @@ components:
           type: string
         remote:
           type: string
-    CloneRequest:
+    RepoPreviewRequest:
       type: object
       required: [remote, name]
       properties:
@@ -672,28 +690,62 @@ components:
           type: string
         name:
           type: string
+        commit:
+          type: string
         branch:
           type: string
-    CloneApp:
+    RepoAppDir:
       type: object
-      required: [source]
+      required: [dir]
       properties:
-        source:
+        dir:
           type: string
-    CloneResult:
+    RepoPreview:
       type: object
-      required: [path, remote, branch, apps]
+      required: [name, remote, apps]
       properties:
-        path:
+        name:
           type: string
         remote:
+          type: string
+        commit:
           type: string
         branch:
           type: string
         apps:
           type: array
           items:
-            $ref: "#/components/schemas/CloneApp"
+            $ref: "#/components/schemas/RepoAppDir"
+    AddRepoApp:
+      type: object
+      required: [slug, name, description, icon, dir]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        dir:
+          type: string
+    AddRepoRequest:
+      type: object
+      required: [remote, name, apps]
+      properties:
+        remote:
+          type: string
+        name:
+          type: string
+        commit:
+          type: string
+        branch:
+          type: string
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddRepoApp"
     CreateAppRequest:
       type: object
       required: [slug, name, description, icon, source]
@@ -717,6 +769,8 @@ components:
         remote:
           type: string
         branch:
+          type: string
+        commit:
           type: string
         latest:
           nullable: true

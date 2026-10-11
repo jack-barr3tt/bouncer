@@ -182,21 +182,39 @@ export interface DeployRequest {
   remote?: string;
 }
 
-export interface CloneRequest {
+export interface RepoPreviewRequest {
   remote: string;
   name: string;
+  commit?: string;
   branch?: string;
 }
 
-export interface CloneApp {
-  source: string;
+export interface RepoAppDir {
+  dir: string;
 }
 
-export interface CloneResult {
-  path: string;
+export interface RepoPreview {
+  name: string;
   remote: string;
-  branch: string;
-  apps: CloneApp[];
+  commit?: string;
+  branch?: string;
+  apps: RepoAppDir[];
+}
+
+export interface AddRepoApp {
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  dir: string;
+}
+
+export interface AddRepoRequest {
+  remote: string;
+  name: string;
+  commit?: string;
+  branch?: string;
+  apps: AddRepoApp[];
 }
 
 export interface CreateAppRequest {
@@ -229,6 +247,7 @@ export interface DeployRepo {
   path: string;
   remote: string;
   branch: string;
+  commit?: string;
   latest?: DeployRun | null;
 }
 
@@ -1590,16 +1609,16 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getRunDeployMutationOptions(options), queryClient);
     }
 
-export const cloneRepo = (
-    cloneRequest: BodyType<CloneRequest>,
+export const previewRepo = (
+    repoPreviewRequest: BodyType<RepoPreviewRequest>,
  options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
 ) => {
 
 
-      return customInstance<CloneResult>(
-      {url: `/api/deploy/clones`, method: 'POST',
+      return customInstance<RepoPreview>(
+      {url: `/api/deploy/repos/preview`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: cloneRequest, signal
+      data: repoPreviewRequest, signal
     },
       options);
     }
@@ -1607,13 +1626,13 @@ export const cloneRepo = (
 
 
 
-export const getCloneRepoMutationKey = () => ['cloneRepo'] as const;
+export const getPreviewRepoMutationKey = () => ['previewRepo'] as const;
 
-export const getCloneRepoMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cloneRepo>>, TError,CloneRepoMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
-): UseMutationOptions<Awaited<ReturnType<typeof cloneRepo>>, TError,CloneRepoMutationVariables, TContext> => {
+export const getPreviewRepoMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewRepo>>, TError,PreviewRepoMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewRepo>>, TError,PreviewRepoMutationVariables, TContext> => {
 
-const mutationKey = getCloneRepoMutationKey();
+const mutationKey = getPreviewRepoMutationKey();
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1623,10 +1642,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cloneRepo>>, CloneRepoMutationVariables> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewRepo>>, PreviewRepoMutationVariables> = (props) => {
           const {data} = props ?? {};
 
-          return  cloneRepo(data,requestOptions)
+          return  previewRepo(data,requestOptions)
         }
 
 
@@ -1636,20 +1655,82 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CloneRepoMutationResult = NonNullable<Awaited<ReturnType<typeof cloneRepo>>>
-    export type CloneRepoMutationBody = BodyType<CloneRequest>
-    export type CloneRepoMutationError = ErrorType<ErrorResponse>
-    export type CloneRepoMutationVariables = {data: BodyType<CloneRequest>}
+    export type PreviewRepoMutationResult = NonNullable<Awaited<ReturnType<typeof previewRepo>>>
+    export type PreviewRepoMutationBody = BodyType<RepoPreviewRequest>
+    export type PreviewRepoMutationError = ErrorType<ErrorResponse>
+    export type PreviewRepoMutationVariables = {data: BodyType<RepoPreviewRequest>}
 
-    export const useCloneRepo = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cloneRepo>>, TError,CloneRepoMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+    export const usePreviewRepo = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewRepo>>, TError,PreviewRepoMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof cloneRepo>>,
+        Awaited<ReturnType<typeof previewRepo>>,
         TError,
-        CloneRepoMutationVariables,
+        PreviewRepoMutationVariables,
         TContext
       > => {
-      return useMutation(getCloneRepoMutationOptions(options), queryClient);
+      return useMutation(getPreviewRepoMutationOptions(options), queryClient);
+    }
+
+export const addRepo = (
+    addRepoRequest: BodyType<AddRepoRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<void>(
+      {url: `/api/deploy/repos`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: addRepoRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getAddRepoMutationKey = () => ['addRepo'] as const;
+
+export const getAddRepoMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRepo>>, TError,AddRepoMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof addRepo>>, TError,AddRepoMutationVariables, TContext> => {
+
+const mutationKey = getAddRepoMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addRepo>>, AddRepoMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  addRepo(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddRepoMutationResult = NonNullable<Awaited<ReturnType<typeof addRepo>>>
+    export type AddRepoMutationBody = BodyType<AddRepoRequest>
+    export type AddRepoMutationError = ErrorType<ErrorResponse>
+    export type AddRepoMutationVariables = {data: BodyType<AddRepoRequest>}
+
+    export const useAddRepo = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRepo>>, TError,AddRepoMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof addRepo>>,
+        TError,
+        AddRepoMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAddRepoMutationOptions(options), queryClient);
     }
 
 export const listApps = (

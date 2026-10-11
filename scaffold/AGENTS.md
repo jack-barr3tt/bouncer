@@ -2,7 +2,7 @@
 
 This directory is a site served by Bouncer. Bouncer serves the homepage, signs people in, and gates each app. You only add apps.
 
-The homepage and the auth server are not in this directory. They run in the Bouncer container. An app is a folder under `apps/`, or a directory inside a git clone in this site, named by `source` in `apps.yaml`.
+The homepage and the auth server are not in this directory. They run in the Bouncer container. An app is a folder under `apps/`, or an app from an external repository named in `apps.yaml`.
 
 ## Sample
 
@@ -19,8 +19,9 @@ Add an entry to `apps.yaml`:
 - `description` — one sentence, 200 characters or fewer.
 - `path` — exactly `/apps/<slug>/`.
 - `icon` — a short label or emoji, 32 characters or fewer.
-- `source` — directory of the Vite app inside `apps/`, when it is not `apps/<slug>`. A clone of one app is `apps/<name>`. An app inside a clone of many is `apps/<name>/<app>`. Omit `source` for a directory at `apps/<slug>` that is not a separate clone.
-- `upstream` — origin to proxy, such as `http://127.0.0.1:3000`, when the app is not files Bouncer serves. The process must already be listening. Omit `source` when you set this. Bouncer still serves `/api` on that app, so the app's own API uses another path.
+- `source` — directory of the Vite app inside `apps/`, when the files are in this repository and the directory is not `apps/<slug>`. Omit it for `apps/<slug>`.
+- `repo` — name of an external repository listed under `repos`. Each entry has `remote` and either `commit` (pinned) or `branch` (tracked). `dir` is the directory of the Vite app inside that repository. Omit `dir` when it is the repository root. Add one with the admin page, or `bouncer repo add <remote> --branch main`.
+- `upstream` — origin to proxy, such as `http://127.0.0.1:3000`, when the app is not files Bouncer serves. The process must already be listening. Omit `source` and `repo` when you set this. Bouncer still serves `/api` on that app, so the app's own API uses another path.
 
 `ROUTING=subdomain` on the server publishes the app at `<slug>.<public host>` instead of `/apps/<slug>/`. Path routing stays in use for localhost.
 
