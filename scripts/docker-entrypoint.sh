@@ -40,7 +40,7 @@ fi
 
 if [ -n "${HUB_UPSTREAM:-}" ] && [ -f /opt/bouncer/hub/dist/server/server.js ]; then
   cd /opt/bouncer/hub
-  npx srvx --prod --host 127.0.0.1 --port 3000 -s dist/client dist/server/server.js &
+  npx srvx --prod --host 127.0.0.1 --port 3000 --dir . --entry dist/server/server.js -s dist/client &
 fi
 
 exec /usr/local/bin/bouncer
