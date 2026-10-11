@@ -16,18 +16,21 @@ function Home() {
   const error = sessionError || appsError
   useToastError(error)
   const shareable = session?.role === 'user' ? apps.filter((app) => session.shareApps?.includes(app.slug)) : []
+  const codeChoices = session?.role === 'user' ? apps.filter((app) => app.public || session.shareApps?.includes(app.slug)) : []
 
   useEffect(() => {
-    if (session?.kind !== 'temporary' || appsPending || appsError || apps.length !== 1) return
-    window.location.assign(apps[0].path)
+    if (session?.kind !== 'temporary' || appsPending || appsError) return
+    const assigned = apps.filter((app) => !app.public)
+    if (assigned.length !== 1) return
+    window.location.assign(assigned[0].path)
   }, [apps, appsError, appsPending, session])
 
   return (
     <>
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
         <HomeHeader />
-        {sessionPending || (session && appsPending) ? null : <AppList />}
-        {shareable.length > 0 ? <AccessCodesSection apps={shareable} heading="Share access" /> : null}
+        {sessionPending || appsPending ? null : <AppList />}
+        {shareable.length > 0 ? <AccessCodesSection apps={codeChoices} heading="Share access" /> : null}
       </main>
     </>
   )

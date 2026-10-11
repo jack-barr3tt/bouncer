@@ -48,10 +48,16 @@ export interface AppInfo {
   description: string;
   path: string;
   icon: string;
+  /** When true, anyone can open this app without an account. */
+  public: boolean;
 }
 
 export interface AppCatalog {
   apps: AppInfo[];
+}
+
+export interface AppPublicRequest {
+  public: boolean;
 }
 
 export type SessionKind = typeof SessionKind[keyof typeof SessionKind];
@@ -1880,6 +1886,69 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateAppMutationOptions(options), queryClient);
+    }
+
+export const setAppPublic = (
+    slug: string,
+    appPublicRequest: BodyType<AppPublicRequest>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<void>(
+      {url: `/api/apps/${slug}`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: appPublicRequest, signal
+    },
+      options);
+    }
+
+
+
+
+export const getSetAppPublicMutationKey = () => ['setAppPublic'] as const;
+
+export const getSetAppPublicMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAppPublic>>, TError,SetAppPublicMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof setAppPublic>>, TError,SetAppPublicMutationVariables, TContext> => {
+
+const mutationKey = getSetAppPublicMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setAppPublic>>, SetAppPublicMutationVariables> = (props) => {
+          const {slug,data} = props ?? {};
+
+          return  setAppPublic(slug,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetAppPublicMutationResult = NonNullable<Awaited<ReturnType<typeof setAppPublic>>>
+    export type SetAppPublicMutationBody = BodyType<AppPublicRequest>
+    export type SetAppPublicMutationError = ErrorType<ErrorResponse>
+    export type SetAppPublicMutationVariables = {slug: string;data: BodyType<AppPublicRequest>}
+
+    export const useSetAppPublic = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAppPublic>>, TError,SetAppPublicMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setAppPublic>>,
+        TError,
+        SetAppPublicMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetAppPublicMutationOptions(options), queryClient);
     }
 
 export const accessStream = (

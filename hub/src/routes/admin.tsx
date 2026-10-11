@@ -1,6 +1,7 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Navigate, createFileRoute } from '@tanstack/react-router'
 import AccessCodesSection from '../components/admin/AccessCodesSection.tsx'
 import AccountsSection from '../components/admin/AccountsSection.tsx'
+import AppsSection from '../components/admin/AppsSection.tsx'
 import DeploySection from '../components/admin/DeploySection.tsx'
 import { useApps, useSession } from '../hooks/useSession.ts'
 import { useToastError } from '../toasts.tsx'
@@ -18,15 +19,8 @@ function Admin() {
     return <main className="mx-auto max-w-3xl px-4 py-8" />
   }
 
-  if (!session || session.role !== 'admin') {
-    return (
-      <main className="mx-auto max-w-md px-4 py-8">
-        <p className="soft">Admin is only available to an admin account.</p>
-        <Link className="accent mt-4 inline-block text-sm font-medium underline" to={session ? '/' : '/login'}>
-          {session ? 'All apps' : 'Sign in'}
-        </Link>
-      </main>
-    )
+  if (session?.role !== 'admin') {
+    return <Navigate to="/" replace />
   }
 
   return (
@@ -34,6 +28,7 @@ function Admin() {
       <p className="accent text-xs font-semibold tracking-[0.22em] uppercase">Site</p>
       <h1 className="mt-2 text-5xl font-extrabold">Admin</h1>
       <DeploySection />
+      <AppsSection apps={apps} />
       <AccountsSection apps={apps} />
       <AccessCodesSection apps={apps} />
     </main>

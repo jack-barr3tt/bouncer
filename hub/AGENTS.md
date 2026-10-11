@@ -6,9 +6,9 @@ The root [AGENTS.md](../AGENTS.md) still applies. Do not turn this app into a sh
 
 ## Registry
 
-The Go server reads `apps.yaml`. The hub loads `GET /api/apps`, which returns the slug, name, description, public path, and icon of each app the current session can open. A signed-out request gets an empty list. The yaml file is not served.
+The Go server reads `apps.yaml`. The hub loads `GET /api/apps`, which returns the slug, name, description, public path, icon, and whether the app is public. A signed-out request returns public apps. The yaml file is not served.
 
-The page lists each entry the signed-in account is allowed to open. Apps without a grant are omitted. A temporary account that can open only one app is sent straight to that app. A production build marks an allowed app "Unavailable" when its URL does not respond successfully. `vite dev` does not perform that check.
+The page lists each app the current visitor can open. A public app is listed for everyone. Other apps are omitted until an account has a grant. A temporary account that can open only one private app is sent straight to that app. Public apps do not count toward that. A production build marks an allowed app "Unavailable" when its URL does not respond successfully. `vite dev` does not perform that check.
 
 Sign-in, join (`/code/<code>`), and admin live in this app. An account allowed to share access codes creates and revokes its own codes from the homepage. `vite dev` proxies `/api` and `/apps` to `http://127.0.0.1:8080`. The hub listens to the access stream and removes a card when that grant disappears.
 

@@ -109,7 +109,14 @@ func (s *Server) CreateAccessCode(c fiber.Ctx) error {
 		return writeError(c, fiber.StatusBadRequest, "Expiry must be in the future.")
 	}
 	slugs, err := s.knownSlugs(req.AppSlugs)
-	if err != nil || len(slugs) == 0 {
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "Choose at least one app.")
+	}
+	slugs, err = s.dropPublic(c.Context(), slugs)
+	if err != nil {
+		return s.internal(c, err)
+	}
+	if len(slugs) == 0 {
 		return writeError(c, fiber.StatusBadRequest, "Choose at least one app.")
 	}
 	if principal.Role != "admin" && !covers(principal.ShareApps, slugs) {
