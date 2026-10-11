@@ -94,7 +94,7 @@ curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
   -d "{\"sha\":\"$SHA\"}"
 ```
 
-`DEPLOY_URL` is the public origin, with no path. Woodpecker secrets are `deploy_token` and `deploy_url`. GitHub Actions and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Set `DEPLOY_POLL_INTERVAL` (for example `1m`) when nothing can call in. Leave `GIT_REMOTE` empty to keep serving the files already in the site directory.
+`DEPLOY_URL` is the public origin, with no path. Woodpecker secrets are `deploy_token` and `deploy_url`. GitHub Actions and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Set `DEPLOY_POLL_INTERVAL` (for example `1m`) when nothing can call in. Leave `GIT_REMOTE` empty when the site directory is a git checkout. Bouncer uses that checkout's origin and branch. Set `GIT_REMOTE` when the directory is not a checkout.
 
 ## Apps from more than one repository
 

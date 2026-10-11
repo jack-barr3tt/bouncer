@@ -20,6 +20,32 @@ type Repo struct {
 	Ambient    bool
 }
 
+func readSiteGit(dir, runtime string) (string, string, bool) {
+	info, err := os.Lstat(filepath.Join(dir, ".git"))
+	if err != nil || (!info.IsDir() && !info.Mode().IsRegular()) {
+		return "", "", false
+	}
+	probe := Repo{Dir: dir, RuntimeDir: runtime}
+	ctx := context.Background()
+	out, err := probe.git(ctx, dir, "remote", "get-url", "origin")
+	if err != nil {
+		return "", "", false
+	}
+	remote := strings.TrimSpace(out)
+	if !validRemote(remote) {
+		return "", "", false
+	}
+	branchOut, err := probe.git(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return remote, "", true
+	}
+	branch := strings.TrimSpace(branchOut)
+	if branch == "" || branch == "HEAD" || !validBranch(branch) {
+		return remote, "", true
+	}
+	return remote, branch, true
+}
+
 func (r *Repo) Sync(ctx context.Context, sha string) (string, error) {
 	if err := os.MkdirAll(r.Dir, 0o755); err != nil {
 		return "", err

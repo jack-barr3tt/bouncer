@@ -44,7 +44,7 @@ postgres:
 
 init:
 	cd $(ROOT) && set -a && [ -f .env ] && . ./.env; set +a; \
-		SITE_ROOT="$${SITE_ROOT:-../apps}" SCAFFOLD="$(ROOT)/scaffold" "$(ROOT)/scripts/docker-entrypoint.sh" init; \
+		SITE_ROOT="$${SITE_ROOT:-scaffold}" SCAFFOLD="$(ROOT)/scaffold" "$(ROOT)/scripts/docker-entrypoint.sh" init; \
 		site="$(ROOT)/$$SITE_ROOT"; \
 		case "$$SITE_ROOT" in /*) site="$$SITE_ROOT";; esac; \
 		if [ -f "$$site/apps/hello/package.json" ] && [ ! -f "$$site/apps/hello/dist/index.html" ]; then \

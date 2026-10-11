@@ -33,6 +33,7 @@ type Config struct {
 	RuntimeDir    string
 	Pool          *pgxpool.Pool
 	store         history
+	inferred      bool
 }
 
 type Status struct {
@@ -70,9 +71,10 @@ type Service struct {
 }
 
 func New(cfg Config) (*Service, error) {
-	if cfg.Branch == "" {
-		cfg.Branch = "main"
-	}
+	explicitRemote := strings.TrimSpace(cfg.Remote) != ""
+	explicitBranch := strings.TrimSpace(cfg.Branch) != ""
+	cfg.Remote = strings.TrimSpace(cfg.Remote)
+	cfg.Branch = strings.TrimSpace(cfg.Branch)
 	if cfg.Workspace == "" {
 		cfg.Workspace = "/workspace"
 	}
@@ -94,11 +96,22 @@ func New(cfg Config) (*Service, error) {
 		cfg.RuntimeDir = fallback
 	}
 	cfg.PublicBase = strings.TrimRight(strings.TrimSpace(cfg.PublicBase), "/")
-	cfg.Remote = strings.TrimSpace(cfg.Remote)
 	if strings.Contains(cfg.RuntimeDir, "'") {
 		return nil, fmt.Errorf("runtime dir is not valid")
 	}
-	if cfg.Remote != "" {
+	if !explicitRemote && strings.TrimSpace(cfg.SiteRoot) != "" {
+		if remote, branch, ok := readSiteGit(cfg.SiteRoot, cfg.RuntimeDir); ok {
+			cfg.Remote = remote
+			cfg.inferred = true
+			if !explicitBranch && branch != "" {
+				cfg.Branch = branch
+			}
+		}
+	}
+	if cfg.Branch == "" {
+		cfg.Branch = "main"
+	}
+	if cfg.Remote != "" && explicitRemote {
 		if !validRemote(cfg.Remote) {
 			return nil, fmt.Errorf("GIT_REMOTE is not valid")
 		}
@@ -128,7 +141,7 @@ func New(cfg Config) (*Service, error) {
 		},
 	}
 	svc.execute = svc.run
-	if cfg.Remote == "" && cfg.SiteRoot != "" {
+	if cfg.SiteRoot != "" {
 		repos, err := svc.discover()
 		if err == nil && len(repos) > 0 {
 			if strings.TrimSpace(cfg.BuilderToken) == "" {
@@ -147,6 +160,9 @@ func (s *Service) Enabled() bool {
 		return false
 	}
 	if s.cfg.Remote != "" {
+		if s.cfg.inferred && (strings.TrimSpace(s.cfg.BuilderToken) == "" || s.store == nil) {
+			return false
+		}
 		return true
 	}
 	repos, err := s.discover()
@@ -175,6 +191,8 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	}
 	if !out.Enabled {
 		out.WebhookURL = ""
+		out.Remote = s.cfg.Remote
+		out.Branch = s.cfg.Branch
 		return out, nil
 	}
 	if s.cfg.Remote != "" {

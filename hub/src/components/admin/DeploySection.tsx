@@ -245,7 +245,11 @@ export default function DeploySection() {
           </div>
         </div>
       ) : (
-        <p className="soft mt-4 text-sm">Bouncer is serving the files already in the site directory. It fetches and builds from git after you add a repository here, or set GIT_REMOTE for this site.</p>
+        <p className="soft mt-4 text-sm">
+          {deploy.remote
+            ? `This site is ${deploy.remote}. Set BUILDER_TOKEN to fetch and build it.`
+            : 'Bouncer is serving the files already in the site directory. Set GIT_REMOTE when this directory is not a git checkout.'}
+        </p>
       )}
     </section>
   )
