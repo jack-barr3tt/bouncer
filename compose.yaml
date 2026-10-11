@@ -57,9 +57,7 @@ services:
       BUILDER_TOKEN: ${BUILDER_TOKEN:-}
       WORKSPACE: /workspace
     volumes:
-      - type: bind
-        source: ${SITE_ROOT:-../apps}
-        target: /site
+      - ${SITE_ROOT:-scaffold}:/site
       - workspace:/workspace
       - ${GIT_SSH_KEY_FILE:-/dev/null}:/run/bouncer/git-key:ro
 

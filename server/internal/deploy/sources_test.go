@@ -25,18 +25,8 @@ func TestSameRemote(t *testing.T) {
 }
 
 func TestHookMatchesTheClone(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git is not installed")
-	}
 	siteRoot := t.TempDir()
-	initRepo(t, filepath.Join(siteRoot, "apps", "notes"), map[string]string{"package.json": "{}"})
-	initRepo(t, filepath.Join(siteRoot, "apps", "games"), map[string]string{"chess/package.json": "{}"})
-	gitCmd(t, filepath.Join(siteRoot, "apps", "notes"), "remote", "add", "origin", "git@github.com:you/notes.git")
-	gitCmd(t, filepath.Join(siteRoot, "apps", "games"), "remote", "add", "origin", "https://github.com/you/games.git")
-	writeFile(t, filepath.Join(siteRoot, "apps.yaml"), ""+
-		"apps:\n"+
-		"  - slug: notes\n    name: Notes\n    description: Hi\n    path: /apps/notes/\n    icon: N\n    source: apps/notes\n"+
-		"  - slug: chess\n    name: Chess\n    description: Hi\n    path: /apps/chess/\n    icon: C\n    source: apps/games/chess\n")
+	writeFile(t, filepath.Join(siteRoot, "apps.yaml"), sourceRegistry())
 	svc := sourceService(t, siteRoot)
 
 	body := []byte(`{"ref":"refs/heads/main","after":"0123456789abcdef0123456789abcdef01234567","repository":{"clone_url":"https://github.com/you/notes.git"}}`)
@@ -82,15 +72,13 @@ func TestPublishSourceApps(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(siteRoot, "apps"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	gitCmd(t, siteRoot, "clone", notesOrigin, "apps/notes")
-	gitCmd(t, siteRoot, "clone", gamesOrigin, "apps/games")
-	yaml := sourceRegistry()
+	gamesRemote := gamesOrigin
+	notesRemote := notesOrigin
+	yaml := sourceRegistryRemotes(notesRemote, gamesRemote)
 	writeFile(t, filepath.Join(siteRoot, "apps.yaml"), yaml)
 	writeFile(t, filepath.Join(siteRoot, "apps", "notes", "dist", "index.html"), "old-notes")
-	writeFile(t, filepath.Join(siteRoot, "apps", "games", "chess", "dist", "index.html"), "old-chess")
-	writeFile(t, filepath.Join(siteRoot, "apps", "games", "draft", "dist", "index.html"), "old-draft")
-
-	gamesRemote := strings.TrimSpace(gitCmd(t, filepath.Join(siteRoot, "apps", "games"), "remote", "get-url", "origin"))
+	writeFile(t, filepath.Join(siteRoot, "apps", "chess", "dist", "index.html"), "old-chess")
+	writeFile(t, filepath.Join(siteRoot, "apps", "draft", "dist", "index.html"), "old-draft")
 	var built []string
 	workspace := t.TempDir()
 	builder := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -115,11 +103,11 @@ func TestPublishSourceApps(t *testing.T) {
 	svc.store.(*memStore).seed(gamesRemote, first)
 	svc.perform(context.Background(), gamesRemote, second)
 
-	chess, err := os.ReadFile(filepath.Join(siteRoot, "apps", "games", "chess", "dist", "index.html"))
+	chess, err := os.ReadFile(filepath.Join(siteRoot, "apps", "chess", "dist", "index.html"))
 	if err != nil || string(chess) != "built-chess" {
 		t.Fatalf("chess: %q %v", chess, err)
 	}
-	draft, err := os.ReadFile(filepath.Join(siteRoot, "apps", "games", "draft", "dist", "index.html"))
+	draft, err := os.ReadFile(filepath.Join(siteRoot, "apps", "draft", "dist", "index.html"))
 	if err != nil || string(draft) != "old-draft" {
 		t.Fatalf("draft: %q %v", draft, err)
 	}
@@ -131,7 +119,7 @@ func TestPublishSourceApps(t *testing.T) {
 	if err != nil || string(gotYAML) != yaml {
 		t.Fatalf("yaml changed: %q %v", gotYAML, err)
 	}
-	if len(built) != 1 || !strings.Contains(built[0], "chess") || !strings.Contains(built[0], "src/apps/games/chess") {
+	if len(built) != 1 || !strings.Contains(built[0], "chess") || !strings.Contains(built[0], "src/repos/games/chess") {
 		t.Fatalf("built %v", built)
 	}
 	latest, err := svc.store.Latest(context.Background(), gamesRemote)
@@ -139,12 +127,12 @@ func TestPublishSourceApps(t *testing.T) {
 		t.Fatalf("latest: %+v %v", latest, err)
 	}
 
-	if err := os.RemoveAll(filepath.Join(siteRoot, "apps", "games", "chess", "dist")); err != nil {
+	if err := os.RemoveAll(filepath.Join(siteRoot, "apps", "chess", "dist")); err != nil {
 		t.Fatal(err)
 	}
 	built = nil
 	svc.perform(context.Background(), gamesRemote, second)
-	chess, err = os.ReadFile(filepath.Join(siteRoot, "apps", "games", "chess", "dist", "index.html"))
+	chess, err = os.ReadFile(filepath.Join(siteRoot, "apps", "chess", "dist", "index.html"))
 	if err != nil || string(chess) != "built-chess" {
 		t.Fatalf("rebuilt chess: %q %v", chess, err)
 	}
@@ -153,19 +141,23 @@ func TestPublishSourceApps(t *testing.T) {
 	}
 }
 
-func TestDetachedCloneFails(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git is not installed")
-	}
+func TestPinnedRepoIgnoresPush(t *testing.T) {
 	siteRoot := t.TempDir()
-	initRepo(t, filepath.Join(siteRoot, "apps", "notes"), map[string]string{"package.json": "{}"})
-	gitCmd(t, filepath.Join(siteRoot, "apps", "notes"), "remote", "add", "origin", "git@github.com:you/notes.git")
-	gitCmd(t, filepath.Join(siteRoot, "apps", "notes"), "checkout", "--detach")
-	writeFile(t, filepath.Join(siteRoot, "apps.yaml"), "apps:\n  - slug: notes\n    name: Notes\n    description: Hi\n    path: /apps/notes/\n    icon: N\n    source: apps/notes\n")
+	pinned := "0123456789abcdef0123456789abcdef01234567"
+	writeFile(t, filepath.Join(siteRoot, "apps.yaml"), ""+
+		"repos:\n"+
+		"  - name: notes\n    remote: git@github.com:you/notes.git\n    commit: "+pinned+"\n"+
+		"apps:\n"+
+		"  - slug: notes\n    name: Notes\n    description: Hi\n    path: /apps/notes/\n    icon: N\n    repo: notes\n")
 	svc := sourceService(t, siteRoot)
-	svc.perform(context.Background(), "git@github.com:you/notes.git", "")
+	body := []byte(`{"ref":"refs/heads/main","after":"abcdef0123456789abcdef0123456789abcdef01","repository":{"clone_url":"https://github.com/you/notes.git"}}`)
+	status, remote, sha := svc.DecideHook("push", sign("secret", body), body)
+	if status != http.StatusNoContent || remote != "" || sha != "" {
+		t.Fatalf("pinned: %d %s %s", status, remote, sha)
+	}
+	svc.perform(context.Background(), "git@github.com:you/notes.git", "abcdef0123456789abcdef0123456789abcdef01")
 	latest, err := svc.store.Latest(context.Background(), "git@github.com:you/notes.git")
-	if err != nil || latest == nil || latest.Status != "failed" || !strings.Contains(latest.Log, "detached HEAD") {
+	if err != nil || latest == nil || latest.Status != "failed" || !strings.Contains(latest.Log, "pinned") {
 		t.Fatalf("latest: %+v %v", latest, err)
 	}
 }
@@ -204,8 +196,15 @@ func initRepo(t *testing.T, dir string, files map[string]string) {
 }
 
 func sourceRegistry() string {
-	return "apps:\n" +
-		"  - slug: notes\n    name: Notes\n    description: Hi\n    path: /apps/notes/\n    icon: N\n    source: apps/notes\n" +
-		"  - slug: chess\n    name: Chess\n    description: Hi\n    path: /apps/chess/\n    icon: C\n    source: apps/games/chess\n" +
-		"  - slug: draft\n    name: Draft\n    description: Hi\n    path: /apps/draft/\n    icon: D\n    source: apps/games/draft\n"
+	return sourceRegistryRemotes("git@github.com:you/notes.git", "https://github.com/you/games.git")
+}
+
+func sourceRegistryRemotes(notes, games string) string {
+	return "repos:\n" +
+		"  - name: notes\n    remote: " + notes + "\n    branch: main\n" +
+		"  - name: games\n    remote: " + games + "\n    branch: main\n" +
+		"apps:\n" +
+		"  - slug: notes\n    name: Notes\n    description: Hi\n    path: /apps/notes/\n    icon: N\n    repo: notes\n" +
+		"  - slug: chess\n    name: Chess\n    description: Hi\n    path: /apps/chess/\n    icon: C\n    repo: games\n    dir: chess\n" +
+		"  - slug: draft\n    name: Draft\n    description: Hi\n    path: /apps/draft/\n    icon: D\n    repo: games\n    dir: draft\n"
 }

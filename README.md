@@ -2,7 +2,7 @@
 
 Have you ever wanted to quickly deploy and share a web app, using your own infrastructure, but didn't want to deal with all that hassle? Bouncer might be just what you're looking for!
 
-Bouncer is a simple way to deploy and share web apps. It runs on your own server and domain, and builds apps with Vite. One deployment is one site directory, with `apps.yaml` as the catalog. Apps can live under `apps/`, or in git clones you put in that directory and point at from `apps.yaml`. Bouncer fetches those clones and publishes the apps that changed. 
+Bouncer is a simple way to deploy and share web apps. It runs on your own server and domain, and builds apps with Vite. One deployment is one site directory, with `apps.yaml` as the catalog. Apps can live under `apps/`, or be referenced from `apps.yaml` by an external repository's commit or branch. Bouncer fetches that revision and publishes the apps that changed. 
 
 Create persistent user accounts, or provide scoped temporary access via a URL, join code or QR code. Stop building auth into all your pet projects - let bouncer do it for you! You can even hook directly into Bouncer's identity system via the `@jack-barr3tt/bouncer-client` library if you want.
 
@@ -94,35 +94,56 @@ curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
   -d "{\"sha\":\"$SHA\"}"
 ```
 
-`DEPLOY_URL` is the public origin, with no path. Woodpecker secrets are `deploy_token` and `deploy_url`. GitHub Actions and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Set `DEPLOY_POLL_INTERVAL` (for example `1m`) when nothing can call in. Leave `GIT_REMOTE` empty to keep serving the files already in the site directory.
+`DEPLOY_URL` is the public origin, with no path. Woodpecker secrets are `deploy_token` and `deploy_url`. GitHub Actions and Forgejo use `DEPLOY_TOKEN` and `DEPLOY_URL`. Set `DEPLOY_POLL_INTERVAL` (for example `1m`) when nothing can call in. Leave `GIT_REMOTE` empty when the site directory is a git checkout. Bouncer uses that checkout's origin and branch. Set `GIT_REMOTE` when the directory is not a checkout.
 
 ## Apps from more than one repository
 
-Clone each project into the site directory, then point `apps.yaml` at the Vite app inside it. One clone can hold many apps. One app can be the whole clone. `source` is the site-relative directory that contains `package.json`:
+Apps you write stay in this repository, under `apps/`. `source` is the directory of a Vite app in this repository when it is not `apps/<slug>`. An external repository is a reference in `apps.yaml`, not a clone in the site tree. `commit` pins an exact revision. `branch` tracks that branch tip. An app sets `repo` to the reference name, and `dir` when `package.json` is not at the repository root. Several apps can share one reference and one revision.
 
 ```yaml
+repos:
+  - name: games
+    remote: git@github.com:you/games.git
+    commit: abcdef0123456789abcdef0123456789abcdef01
+  - name: notes
+    remote: git@github.com:you/notes.git
+    branch: main
 apps:
-  - slug: notes
-    name: Notes
-    description: A notebook.
-    path: /apps/notes/
-    icon: N
-    source: apps/notes
   - slug: chess
     name: Chess
     description: A board.
     path: /apps/chess/
     icon: C
-    source: apps/games/chess
+    repo: games
+    dir: chess
+  - slug: notes
+    name: Notes
+    description: A notebook.
+    path: /apps/notes/
+    icon: N
+    repo: notes
 ```
 
-`apps/notes` is a clone of one app. `apps/games` is a clone that contains more than one app. A directory under `apps/` with no git clone stays as it is. Bouncer reads `origin` and the checked-out branch from each clone. A detached HEAD fails that clone's deploy. The deploy key must be able to read every origin.
+Bouncer checks that revision out in its build workspace and publishes `apps/<slug>/dist`. A new pinned version goes live when `commit` changes. A tracked branch goes live from a push webhook, a poll, or a deploy request. The deploy key must be able to read every origin. `apps.yaml` is left as you wrote it.
 
-The admin page can clone a repository into `apps/<folder>` and register the apps it finds, so a new project does not need a shell on the server.
+The admin page can look up a remote and add the apps it finds. From a shell, the same write is:
 
-Push webhooks for every forge use the same URL, `https://apps.example.com/api/hooks/git`, and the same `DEPLOY_WEBHOOK_SECRET`. Bouncer matches the repository in the payload to a clone. It publishes `dist` under `apps/<slug>/` and leaves `apps.yaml` as you wrote it. The admin page lists each clone and can publish that branch tip.
+```bash
+bouncer repo add git@github.com:you/notes.git --branch main
+bouncer repo add git@github.com:you/games.git --commit abcdef0123456789abcdef0123456789abcdef01 --name games --app chess=chess
+```
 
-When more than one clone is configured, the deploy request includes the remote:
+On a terminal it asks for anything you leave out. With every flag set, it does not ask. On the server, from `deploy/`:
+
+```bash
+docker compose exec bouncer bouncer repo add git@github.com:you/notes.git --branch main
+```
+
+Against a checkout of the site, pass `--site` or set `SITE_ROOT` to that directory. If that directory is a git checkout, commit `apps.yaml`. When `GIT_REMOTE` is set, the next site publish replaces `apps.yaml` from the site repository, so the committed file is the one that sticks. The admin page writes the live site directory, which is the right place when the site is not published from git.
+
+Push webhooks for every forge use the same URL, `https://apps.example.com/api/hooks/git`, and the same `DEPLOY_WEBHOOK_SECRET`. Bouncer matches the repository in the payload to a tracked branch. A pinned repository ignores those pushes. The admin page lists each repository and can publish it.
+
+When more than one remote is configured, the deploy request includes the remote:
 
 ```bash
 curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
@@ -131,7 +152,7 @@ curl -fsS -X POST "$DEPLOY_URL/api/deploy" \
   -d "{\"sha\":\"$SHA\",\"remote\":\"git@github.com:you/notes.git\"}"
 ```
 
-SSH and HTTPS forms of the same repository match. A site that sets `GIT_REMOTE` and does not set `source` still publishes that one repository, including its `apps.yaml`.
+SSH and HTTPS forms of the same repository match. A site that sets `GIT_REMOTE` still publishes that repository, including its `apps.yaml`, and publishes any pinned repository whose commit changed.
 
 The admin page shows the latest deploy and can publish the branch tip. The webhook URL is on that page too. Paste `DEPLOY_WEBHOOK_SECRET` from `deploy/.env` into the forge.
 

@@ -128,6 +128,24 @@ type AccessCodeList struct {
 	Codes []AccessCode `json:"codes"`
 }
 
+// AddRepoApp defines model for AddRepoApp.
+type AddRepoApp struct {
+	Description string `json:"description"`
+	Dir         string `json:"dir"`
+	Icon        string `json:"icon"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+}
+
+// AddRepoRequest defines model for AddRepoRequest.
+type AddRepoRequest struct {
+	Apps   []AddRepoApp `json:"apps"`
+	Branch *string      `json:"branch,omitempty"`
+	Commit *string      `json:"commit,omitempty"`
+	Name   string       `json:"name"`
+	Remote string       `json:"remote"`
+}
+
 // AppCatalog defines model for AppCatalog.
 type AppCatalog struct {
 	Apps []AppInfo `json:"apps"`
@@ -208,6 +226,7 @@ type CreateUserRequest struct {
 // DeployRepo defines model for DeployRepo.
 type DeployRepo struct {
 	Branch string     `json:"branch"`
+	Commit *string    `json:"commit,omitempty"`
 	Latest *DeployRun `json:"latest,omitempty"`
 	Path   string     `json:"path"`
 	Remote string     `json:"remote"`
@@ -258,6 +277,28 @@ type RedeemRequest struct {
 	Code        string `json:"code"`
 	Fingerprint string `json:"fingerprint"`
 	Nickname    string `json:"nickname"`
+}
+
+// RepoAppDir defines model for RepoAppDir.
+type RepoAppDir struct {
+	Dir string `json:"dir"`
+}
+
+// RepoPreview defines model for RepoPreview.
+type RepoPreview struct {
+	Apps   []RepoAppDir `json:"apps"`
+	Branch *string      `json:"branch,omitempty"`
+	Commit *string      `json:"commit,omitempty"`
+	Name   string       `json:"name"`
+	Remote string       `json:"remote"`
+}
+
+// RepoPreviewRequest defines model for RepoPreviewRequest.
+type RepoPreviewRequest struct {
+	Branch *string `json:"branch,omitempty"`
+	Commit *string `json:"commit,omitempty"`
+	Name   string  `json:"name"`
+	Remote string  `json:"remote"`
 }
 
 // Session defines model for Session.
@@ -352,8 +393,11 @@ type SetAppPublicJSONRequestBody = AppPublicRequest
 // TriggerDeployJSONRequestBody defines body for TriggerDeploy for application/json ContentType.
 type TriggerDeployJSONRequestBody = DeployRequest
 
-// CloneRepoJSONRequestBody defines body for CloneRepo for application/json ContentType.
-type CloneRepoJSONRequestBody = CloneRequest
+// AddRepoJSONRequestBody defines body for AddRepo for application/json ContentType.
+type AddRepoJSONRequestBody = AddRepoRequest
+
+// PreviewRepoJSONRequestBody defines body for PreviewRepo for application/json ContentType.
+type PreviewRepoJSONRequestBody = RepoPreviewRequest
 
 // RunDeployJSONRequestBody defines body for RunDeploy for application/json ContentType.
 type RunDeployJSONRequestBody = DeployRequest
@@ -415,8 +459,11 @@ type ServerInterface interface {
 	// (POST /api/deploy)
 	TriggerDeploy(c fiber.Ctx) error
 
-	// (POST /api/deploy/clones)
-	CloneRepo(c fiber.Ctx) error
+	// (POST /api/deploy/repos)
+	AddRepo(c fiber.Ctx) error
+
+	// (POST /api/deploy/repos/preview)
+	PreviewRepo(c fiber.Ctx) error
 
 	// (POST /api/deploy/run)
 	RunDeploy(c fiber.Ctx) error
@@ -747,11 +794,29 @@ func (siw *ServerInterfaceWrapper) TriggerDeploy(c fiber.Ctx) error {
 	return handler(c)
 }
 
-// CloneRepo operation middleware
-func (siw *ServerInterfaceWrapper) CloneRepo(c fiber.Ctx) error {
+// AddRepo operation middleware
+func (siw *ServerInterfaceWrapper) AddRepo(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
-		return siw.Handler.CloneRepo(c)
+		return siw.Handler.AddRepo(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// PreviewRepo operation middleware
+func (siw *ServerInterfaceWrapper) PreviewRepo(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.PreviewRepo(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -1039,7 +1104,9 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/api/deploy/run", wrapper.RunDeploy)
 
-	router.Post(options.BaseURL+"/api/deploy/clones", wrapper.CloneRepo)
+	router.Post(options.BaseURL+"/api/deploy/repos/preview", wrapper.PreviewRepo)
+
+	router.Post(options.BaseURL+"/api/deploy/repos", wrapper.AddRepo)
 
 	router.Get(options.BaseURL+"/api/apps", wrapper.ListApps)
 

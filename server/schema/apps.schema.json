@@ -6,6 +6,42 @@
   "additionalProperties": false,
   "required": ["apps"],
   "properties": {
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "remote"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "Name used by an app's repo field."
+          },
+          "remote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Git remote to fetch. The deploy key must be able to read it."
+          },
+          "commit": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{40}$",
+            "description": "Pinned commit. A new version is published only when this changes."
+          },
+          "branch": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Tracked branch. A push to this branch is published."
+          }
+        },
+        "oneOf": [
+          { "required": ["commit"], "not": { "required": ["branch"] } },
+          { "required": ["branch"], "not": { "required": ["commit"] } }
+        ]
+      }
+    },
     "apps": {
       "type": "array",
       "items": {
@@ -46,7 +82,18 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "Directory of the Vite app under apps/. A clone of one app is apps/<name>. An app inside a clone of many apps is apps/<name>/<app>. Omit when the app is the apps/<slug> directory. Cannot be combined with upstream."
+            "description": "Directory of the Vite app under apps/ when it is not apps/<slug>. The files are part of this site. Cannot be combined with repo or upstream."
+          },
+          "repo": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "Name of an entry in repos. Cannot be combined with source or upstream."
+          },
+          "dir": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Directory of the Vite app inside that repository. Omit when it is the repository root."
           },
           "upstream": {
             "type": "string",

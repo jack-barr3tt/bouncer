@@ -14,6 +14,47 @@ import (
 	"time"
 )
 
+func TestSiteCheckoutBecomesTheRemote(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	dir := t.TempDir()
+	gitCmd(t, dir, "init", "-b", "main")
+	gitCmd(t, dir, "remote", "add", "origin", "git@github.com:you/apps.git")
+	svc, err := New(Config{
+		SiteRoot:      dir,
+		BuilderToken:  "builder",
+		WebhookSecret: "secret",
+		PublicBase:    "https://apps.example.com",
+		RuntimeDir:    t.TempDir(),
+		KeyFile:       filepath.Join(t.TempDir(), "missing-key"),
+		store:         &memStore{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.cfg.Remote != "git@github.com:you/apps.git" || svc.cfg.Branch != "main" || !svc.Enabled() {
+		t.Fatalf("remote %q branch %q enabled %v", svc.cfg.Remote, svc.cfg.Branch, svc.Enabled())
+	}
+
+	bare, err := New(Config{
+		SiteRoot:   dir,
+		PublicBase: "https://apps.example.com",
+		RuntimeDir: t.TempDir(),
+		KeyFile:    filepath.Join(t.TempDir(), "missing-key"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bare.Enabled() {
+		t.Fatal("deploy enabled without a builder")
+	}
+	status, err := bare.Status(context.Background())
+	if err != nil || status.Enabled || status.Remote != "git@github.com:you/apps.git" {
+		t.Fatalf("status: %+v %v", status, err)
+	}
+}
+
 func TestEnqueueKeepsTheNewestWaitingCommit(t *testing.T) {
 	var mu sync.Mutex
 	var got []string

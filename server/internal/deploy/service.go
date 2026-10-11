@@ -33,6 +33,7 @@ type Config struct {
 	RuntimeDir    string
 	Pool          *pgxpool.Pool
 	store         history
+	inferred      bool
 }
 
 type Status struct {
@@ -48,6 +49,7 @@ type RepoStatus struct {
 	Path   string
 	Remote string
 	Branch string
+	Commit string
 	Latest *Run
 }
 
@@ -69,9 +71,10 @@ type Service struct {
 }
 
 func New(cfg Config) (*Service, error) {
-	if cfg.Branch == "" {
-		cfg.Branch = "main"
-	}
+	explicitRemote := strings.TrimSpace(cfg.Remote) != ""
+	explicitBranch := strings.TrimSpace(cfg.Branch) != ""
+	cfg.Remote = strings.TrimSpace(cfg.Remote)
+	cfg.Branch = strings.TrimSpace(cfg.Branch)
 	if cfg.Workspace == "" {
 		cfg.Workspace = "/workspace"
 	}
@@ -84,12 +87,31 @@ func New(cfg Config) (*Service, error) {
 	if cfg.RuntimeDir == "" {
 		cfg.RuntimeDir = "/run/bouncer"
 	}
+	if err := os.MkdirAll(cfg.RuntimeDir, 0o700); err != nil {
+		fallback := filepath.Join(os.TempDir(), "bouncer")
+		if err := os.MkdirAll(fallback, 0o700); err != nil {
+			return nil, fmt.Errorf("runtime dir: %w", err)
+		}
+		log.Printf("deploy runtime dir %s is not writable, using %s", cfg.RuntimeDir, fallback)
+		cfg.RuntimeDir = fallback
+	}
 	cfg.PublicBase = strings.TrimRight(strings.TrimSpace(cfg.PublicBase), "/")
-	cfg.Remote = strings.TrimSpace(cfg.Remote)
 	if strings.Contains(cfg.RuntimeDir, "'") {
 		return nil, fmt.Errorf("runtime dir is not valid")
 	}
-	if cfg.Remote != "" {
+	if !explicitRemote && strings.TrimSpace(cfg.SiteRoot) != "" {
+		if remote, branch, ok := readSiteGit(cfg.SiteRoot, cfg.RuntimeDir); ok {
+			cfg.Remote = remote
+			cfg.inferred = true
+			if !explicitBranch && branch != "" {
+				cfg.Branch = branch
+			}
+		}
+	}
+	if cfg.Branch == "" {
+		cfg.Branch = "main"
+	}
+	if cfg.Remote != "" && explicitRemote {
 		if !validRemote(cfg.Remote) {
 			return nil, fmt.Errorf("GIT_REMOTE is not valid")
 		}
@@ -107,8 +129,8 @@ func New(cfg Config) (*Service, error) {
 		cfg.store = &pgStore{pool: cfg.Pool}
 	}
 	svc := &Service{
-		cfg:   cfg,
-		store: cfg.store,
+		cfg:    cfg,
+		store:  cfg.store,
 		client: &http.Client{},
 		repo: Repo{
 			Dir:        filepath.Join(cfg.Workspace, "src"),
@@ -119,14 +141,14 @@ func New(cfg Config) (*Service, error) {
 		},
 	}
 	svc.execute = svc.run
-	if cfg.Remote == "" && cfg.SiteRoot != "" {
+	if cfg.SiteRoot != "" {
 		repos, err := svc.discover()
 		if err == nil && len(repos) > 0 {
 			if strings.TrimSpace(cfg.BuilderToken) == "" {
-				return nil, fmt.Errorf("BUILDER_TOKEN is required when an app source is set")
+				return nil, fmt.Errorf("BUILDER_TOKEN is required when a repository is configured")
 			}
 			if svc.store == nil {
-				return nil, fmt.Errorf("database is required when an app source is set")
+				return nil, fmt.Errorf("database is required when a repository is configured")
 			}
 		}
 	}
@@ -138,13 +160,11 @@ func (s *Service) Enabled() bool {
 		return false
 	}
 	if s.cfg.Remote != "" {
+		if s.cfg.inferred && (strings.TrimSpace(s.cfg.BuilderToken) == "" || s.store == nil) {
+			return false
+		}
 		return true
 	}
-	repos, err := s.discover()
-	return err == nil && len(repos) > 0
-}
-
-func (s *Service) sourceMode() bool {
 	repos, err := s.discover()
 	return err == nil && len(repos) > 0
 }
@@ -171,38 +191,39 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	}
 	if !out.Enabled {
 		out.WebhookURL = ""
+		out.Remote = s.cfg.Remote
+		out.Branch = s.cfg.Branch
 		return out, nil
 	}
-	if s.sourceMode() {
-		repos, err := s.discover()
-		if err != nil {
-			return Status{}, err
-		}
-		for _, repo := range repos {
-			item := RepoStatus{Path: repo.Path, Remote: repo.Remote, Branch: repo.Branch}
-			if s.store != nil && repo.Remote != "" {
-				latest, err := s.store.Latest(ctx, repo.Remote)
-				if err != nil {
-					return Status{}, err
-				}
-				item.Latest = latest
+	if s.cfg.Remote != "" {
+		out.Remote = s.cfg.Remote
+		out.Branch = s.cfg.Branch
+		if s.store == nil {
+			out.Repos = append(out.Repos, RepoStatus{Remote: s.cfg.Remote, Branch: s.cfg.Branch})
+		} else {
+			latest, err := s.store.Latest(ctx, "")
+			if err != nil {
+				return Status{}, err
 			}
-			out.Repos = append(out.Repos, item)
+			out.Latest = latest
+			out.Repos = append(out.Repos, RepoStatus{Remote: s.cfg.Remote, Branch: s.cfg.Branch, Latest: latest})
 		}
-		return out, nil
 	}
-	out.Remote = s.cfg.Remote
-	out.Branch = s.cfg.Branch
-	if s.store == nil {
-		out.Repos = []RepoStatus{{Remote: s.cfg.Remote, Branch: s.cfg.Branch}}
-		return out, nil
-	}
-	latest, err := s.store.Latest(ctx, "")
+	repos, err := s.discover()
 	if err != nil {
 		return Status{}, err
 	}
-	out.Latest = latest
-	out.Repos = []RepoStatus{{Remote: s.cfg.Remote, Branch: s.cfg.Branch, Latest: latest}}
+	for _, repo := range repos {
+		item := RepoStatus{Path: repo.Name, Remote: repo.Remote, Branch: repo.Branch, Commit: repo.Commit}
+		if s.store != nil && repo.Remote != "" {
+			latest, err := s.store.Latest(ctx, repo.Remote)
+			if err != nil {
+				return Status{}, err
+			}
+			item.Latest = latest
+		}
+		out.Repos = append(out.Repos, item)
+	}
 	return out, nil
 }
 
@@ -232,24 +253,25 @@ func (s *Service) Poll(ctx context.Context) {
 }
 
 func (s *Service) pollOnce(ctx context.Context) error {
-	if s.sourceMode() {
-		return s.pollSources(ctx)
+	var failed error
+	if s.cfg.Remote != "" {
+		tip, err := s.repo.Tip(ctx)
+		if err != nil {
+			failed = err
+		} else {
+			last, err := s.store.LastPublished(ctx, "")
+			if err != nil {
+				return err
+			}
+			if tip != last {
+				s.Enqueue("", tip)
+			}
+		}
 	}
-	if s.cfg.Remote == "" {
-		return nil
-	}
-	tip, err := s.repo.Tip(ctx)
-	if err != nil {
+	if err := s.pollSources(ctx); err != nil {
 		return err
 	}
-	last, err := s.store.LastPublished(ctx, "")
-	if err != nil {
-		return err
-	}
-	if tip != last {
-		s.Enqueue("", tip)
-	}
-	return nil
+	return failed
 }
 
 func (s *Service) pollSources(ctx context.Context) error {
@@ -257,24 +279,33 @@ func (s *Service) pollSources(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(repos) == 0 {
+		return nil
+	}
 	if s.store == nil {
-		return fmt.Errorf("database is required when an app source is set")
+		return fmt.Errorf("database is required when a repository is configured")
 	}
 	var failed error
 	for _, repo := range repos {
-		if repo.Err != "" || repo.Remote == "" {
+		if repo.Remote == "" {
+			continue
+		}
+		last, err := s.store.LastPublished(ctx, repo.Remote)
+		if err != nil {
+			return err
+		}
+		if repo.Commit != "" {
+			if !strings.EqualFold(last, repo.Commit) {
+				s.Enqueue(repo.Remote, repo.Commit)
+			}
 			continue
 		}
 		checkout := s.checkout(repo)
 		tip, err := checkout.Tip(ctx)
 		if err != nil {
 			failed = err
-			log.Printf("deploy poll %s: %v", repo.Path, err)
+			log.Printf("deploy poll %s: %v", repo.Name, err)
 			continue
-		}
-		last, err := s.store.LastPublished(ctx, repo.Remote)
-		if err != nil {
-			return err
 		}
 		if tip != last {
 			s.Enqueue(repo.Remote, tip)
@@ -336,7 +367,7 @@ func (s *Service) run(ctx context.Context, remote, sha string) {
 }
 
 func (s *Service) perform(ctx context.Context, remote, requested string) {
-	if s.sourceMode() {
+	if strings.TrimSpace(remote) != "" {
 		s.performSources(ctx, remote, requested)
 		return
 	}
@@ -406,8 +437,33 @@ func (s *Service) performLegacy(ctx context.Context, requested string) {
 		fmt.Fprintf(&buf, "%s\n", err)
 		return
 	}
+	s.enqueuePinned(ctx)
 	status = "published"
 	fmt.Fprintf(&buf, "published\n")
+}
+
+func (s *Service) enqueuePinned(ctx context.Context) {
+	if s.store == nil {
+		return
+	}
+	repos, err := s.discover()
+	if err != nil {
+		log.Printf("deploy: %v", err)
+		return
+	}
+	for _, repo := range repos {
+		if repo.Commit == "" || repo.Remote == "" {
+			continue
+		}
+		last, err := s.store.LastPublished(ctx, repo.Remote)
+		if err != nil {
+			log.Printf("deploy %s: %v", repo.Name, err)
+			continue
+		}
+		if !strings.EqualFold(last, repo.Commit) {
+			s.Enqueue(repo.Remote, repo.Commit)
+		}
+	}
 }
 
 func (s *Service) changedSlugs(ctx context.Context, last, sha string) ([]string, string, error) {

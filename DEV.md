@@ -10,7 +10,7 @@ In the session, switch windows with `Ctrl-b` then `n` or `p`, or `Ctrl-b` then `
 
 Postgres listens on `127.0.0.1:5436`. The user, password, and database are `bouncer`. The first start of an empty database creates the admin from `AUTH_BOOTSTRAP_USERNAME` and `AUTH_BOOTSTRAP_PASSWORD`. Sign in with those, then change the password. The server applies migrations as it starts. `make migrate` applies them on their own.
 
-`SITE_ROOT` in the example is `../apps`, a directory next to this repository. Point it at the site you want to serve. `make dev` writes `apps.yaml` and the Hello sample into a site that does not already have `apps.yaml`, and builds Hello when `dist` is missing. A site that already has `apps.yaml` is left alone. The container entrypoint copies the same sample, including the Hello build from the image.
+`SITE_ROOT` in the example is `scaffold`, so the apps are `scaffold/apps` and `apps.yaml` is the sample in this repository. Point it at another directory when you want to serve a different site. `make dev` writes `apps.yaml` and the Hello sample into a site that does not already have `apps.yaml`, and builds Hello when `dist` is missing. A site that already has `apps.yaml` is left alone. The container entrypoint copies the same sample, including the Hello build from the image.
 
 `docker compose up` runs Postgres, the builder, and `ghcr.io/jack-barr3tt/bouncer`. That server is the published image, so it does not include changes in this checkout.
 

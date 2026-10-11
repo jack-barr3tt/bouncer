@@ -84,44 +84,99 @@ func (s *Server) RunDeploy(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusAccepted)
 }
 
-func (s *Server) CloneRepo(c fiber.Ctx) error {
+func (s *Server) PreviewRepo(c fiber.Ctx) error {
 	if _, err := s.requireAdmin(c); err != nil {
 		return err
 	}
 	if s.deploy == nil {
 		return writeError(c, fiber.StatusNotFound, "Deploy is not configured.")
 	}
-	var req CloneRequest
+	var req RepoPreviewRequest
 	if err := c.Bind().JSON(&req); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "Invalid request.")
 	}
-	branch := ""
-	if req.Branch != nil {
-		branch = *req.Branch
-	}
-	cloned, err := s.deploy.AddClone(c.Context(), req.Remote, req.Name, branch)
+	preview, err := s.deploy.PreviewRepo(c.Context(), req.Remote, req.Name, deref(req.Commit), deref(req.Branch))
 	if err != nil {
-		switch err.Error() {
-		case "remote is not valid", "folder name is not valid", "branch is not valid":
-			return writeError(c, fiber.StatusBadRequest, "Invalid request.")
-		case "folder already exists":
-			return writeError(c, fiber.StatusBadRequest, "That folder already exists.")
-		case "could not clone that repository":
-			return writeError(c, fiber.StatusBadRequest, "Could not clone that repository.")
-		default:
-			return s.internal(c, err)
-		}
+		return repoError(c, s, err)
 	}
-	apps := make([]CloneApp, 0, len(cloned.Apps))
-	for _, source := range cloned.Apps {
-		apps = append(apps, CloneApp{Source: source})
+	apps := make([]RepoAppDir, 0, len(preview.Apps))
+	for _, app := range preview.Apps {
+		apps = append(apps, RepoAppDir{Dir: app.Dir})
 	}
-	return c.Status(fiber.StatusCreated).JSON(CloneResult{
-		Path:   cloned.Path,
-		Remote: cloned.Remote,
-		Branch: cloned.Branch,
+	return c.JSON(RepoPreview{
+		Name:   preview.Name,
+		Remote: preview.Remote,
+		Commit: emptyNil(preview.Commit),
+		Branch: emptyNil(preview.Branch),
 		Apps:   apps,
 	})
+}
+
+func (s *Server) AddRepo(c fiber.Ctx) error {
+	if _, err := s.requireAdmin(c); err != nil {
+		return err
+	}
+	var req AddRepoRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "Invalid request.")
+	}
+	apps := make([]site.App, 0, len(req.Apps))
+	for _, app := range req.Apps {
+		apps = append(apps, site.App{
+			Slug:        app.Slug,
+			Name:        app.Name,
+			Description: app.Description,
+			Icon:        app.Icon,
+			Dir:         app.Dir,
+		})
+	}
+	err := s.site.AddRepo(site.RepoRef{
+		Name:   req.Name,
+		Remote: req.Remote,
+		Commit: deref(req.Commit),
+		Branch: deref(req.Branch),
+	}, apps)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, repoWriteMessage(err))
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func deref(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func emptyNil(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func repoError(c fiber.Ctx, s *Server, err error) error {
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "not valid"), strings.Contains(message, "set a branch or a commit"):
+		return writeError(c, fiber.StatusBadRequest, "Invalid request.")
+	case strings.Contains(message, "could not fetch"):
+		return writeError(c, fiber.StatusBadRequest, "Could not fetch that repository.")
+	default:
+		return s.internal(c, err)
+	}
+}
+
+func repoWriteMessage(err error) string {
+	switch {
+	case strings.Contains(err.Error(), "already registered"):
+		return "That name is already used."
+	case strings.Contains(err.Error(), "set a branch or a commit"):
+		return "Set a branch or a commit."
+	default:
+		return "Invalid request."
+	}
 }
 
 func (s *Server) CreateApp(c fiber.Ctx) error {
@@ -184,6 +239,7 @@ func deployStatusJSON(status deploy.Status) DeployStatus {
 			Path:   repo.Path,
 			Remote: repo.Remote,
 			Branch: repo.Branch,
+			Commit: emptyNil(repo.Commit),
 		}
 		if repo.Latest != nil {
 			run := deployRunJSON(*repo.Latest)

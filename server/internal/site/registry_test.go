@@ -128,6 +128,64 @@ func rejectUpstream(t *testing.T, upstream, source, want string) {
 	}
 }
 
+func TestAppsYAMLKeepsAPinnedRepo(t *testing.T) {
+	dir := t.TempDir()
+	body := "repos:\n  - name: games\n    remote: git@github.com:you/games.git\n    commit: abcdef0123456789abcdef0123456789abcdef01\napps:\n  - slug: chess\n    name: Chess\n    description: Hi\n    path: /apps/chess/\n    icon: C\n    repo: games\n    dir: chess/\n"
+	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := opened.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Repos) != 1 || file.Repos[0].Commit == "" || file.Repos[0].Branch != "" {
+		t.Fatalf("repos: %+v", file.Repos)
+	}
+	if len(file.Apps) != 1 || file.Apps[0].Repo != "games" || file.Apps[0].Dir != "chess" {
+		t.Fatalf("apps: %+v", file.Apps)
+	}
+	got := opened.AppDir("chess")
+	if got != filepath.Join(opened.Root(), "apps", "chess", "dist") {
+		t.Fatalf("dir: %s", got)
+	}
+}
+
+func TestAppsYAMLRejectsRepoWithSource(t *testing.T) {
+	dir := t.TempDir()
+	body := "repos:\n  - name: games\n    remote: git@github.com:you/games.git\n    branch: main\napps:\n  - slug: chess\n    name: Chess\n    description: Hi\n    path: /apps/chess/\n    icon: C\n    repo: games\n    source: apps/chess\n"
+	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = opened.Load()
+	if err == nil || !strings.Contains(err.Error(), "repo") {
+		t.Fatalf("error: %v", err)
+	}
+}
+
+func TestAppsYAMLRejectsCommitAndBranch(t *testing.T) {
+	dir := t.TempDir()
+	body := "repos:\n  - name: games\n    remote: git@github.com:you/games.git\n    commit: abcdef0123456789abcdef0123456789abcdef01\n    branch: main\napps: []\n"
+	if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = opened.Load()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestAppsYAMLRejectsABadPath(t *testing.T) {
 	dir := t.TempDir()
 	body := "apps:\n  - slug: hello\n    name: Hello\n    description: Hi\n    path: /hello/\n    icon: Hi\n"
