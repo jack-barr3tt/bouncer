@@ -1,6 +1,6 @@
 {
   "name": "@jack-barr3tt/create-bouncer",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "type": "module",
   "description": "Write Bouncer site files: CI pipelines, build scripts, the compose file that runs the image, and the Hello sample.",
   "license": "MIT",
