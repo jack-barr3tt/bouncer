@@ -32,15 +32,38 @@ function readEvent(event: Event): AccessBody | null {
 }
 
 export function watchAccess(slug: string): void {
-  const stream = new EventSource('/api/access/stream')
-  stream.addEventListener('access', (event) => {
-    const data = readEvent(event)
-    if (!data) return
-    const dest = accessDestination('access', data, slug)
-    if (dest) window.location.assign(dest)
-  })
-  stream.addEventListener('session_ended', (event) => {
-    const data = readEvent(event) ?? {}
-    window.location.assign(accessDestination('session_ended', data, slug) ?? '/login')
-  })
+  let closed = false
+  let stream: EventSource | null = null
+  let attempt = 0
+  let timer = 0
+
+  const connect = () => {
+    if (closed) return
+    stream = new EventSource('/api/access/stream')
+    stream.addEventListener('open', () => {
+      attempt = 0
+    })
+    stream.addEventListener('access', (event) => {
+      const data = readEvent(event)
+      if (!data) return
+      const dest = accessDestination('access', data, slug)
+      if (dest) window.location.assign(dest)
+    })
+    stream.addEventListener('session_ended', (event) => {
+      closed = true
+      window.clearTimeout(timer)
+      stream?.close()
+      const data = readEvent(event) ?? {}
+      window.location.assign(accessDestination('session_ended', data, slug) ?? '/login')
+    })
+    stream.onerror = () => {
+      stream?.close()
+      if (closed) return
+      const delay = Math.min(30_000, 1000 * 2 ** attempt)
+      attempt = Math.min(attempt + 1, 5)
+      timer = window.setTimeout(connect, delay)
+    }
+  }
+
+  connect()
 }
