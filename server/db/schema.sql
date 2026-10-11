@@ -5,7 +5,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict xgfGezfXjFVBEGuaAXKthbrtedyYNROEVN6MmtbNG7Dnp3x1PNtcc0UPfvU9Cex
+\restrict izZMoZczEPQlTC3exQrgMar6qhQ7odKzdfN6KdjLB4kp0sHO2Rb4UxKmaipZaJL
 
 -- Dumped from database version 17.11 (Debian 17.11-1.pgdg13+2)
 -- Dumped by pg_dump version 17.11 (Debian 17.11-1.pgdg13+2)
@@ -78,6 +78,15 @@ CREATE TABLE public.deploys (
     finished_at timestamp with time zone,
     remote text DEFAULT ''::text NOT NULL,
     CONSTRAINT deploys_status_check CHECK ((status = ANY (ARRAY['running'::text, 'published'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: public_apps; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.public_apps (
+    slug text NOT NULL
 );
 
 
@@ -187,6 +196,14 @@ ALTER TABLE ONLY public.auth_attempts
 
 ALTER TABLE ONLY public.deploys
     ADD CONSTRAINT deploys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: public_apps public_apps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.public_apps
+    ADD CONSTRAINT public_apps_pkey PRIMARY KEY (slug);
 
 
 --
@@ -319,5 +336,5 @@ ALTER TABLE ONLY public.user_apps
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xgfGezfXjFVBEGuaAXKthbrtedyYNROEVN6MmtbNG7Dnp3x1PNtcc0UPfvU9Cex
+\unrestrict izZMoZczEPQlTC3exQrgMar6qhQ7odKzdfN6KdjLB4kp0sHO2Rb4UxKmaipZaJL
 

@@ -27,7 +27,7 @@ Schema changes go through numbered files in `server/db/migrations/`. After chang
 
 `SITE_ROOT` is the consumer directory. The homepage is the server-rendered hub. `HUB_UPSTREAM` is its origin, and defaults to `http://127.0.0.1:5173`. The image sets it to the hub process on port 3000.
 
-App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE_ROOT/apps/<slug>` otherwise. An app with `upstream` is proxied to that origin instead. The server reads `apps.yaml` from `SITE_ROOT` and checks it against the schema in `server/schema/apps.schema.json`. `GET /api/apps` returns the apps the current session can open. A signed-out request gets an empty list. An admin sees every app. The yaml file is not served.
+App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE_ROOT/apps/<slug>` otherwise. An app with `upstream` is proxied to that origin instead. The server reads `apps.yaml` from `SITE_ROOT` and checks it against the schema in `server/schema/apps.schema.json`. `GET /api/apps` returns the apps the current session can open, including public apps. A signed-out request returns public apps. An admin sees every app. The yaml file is not served.
 
 `ROUTING=subdomain` serves each app at `<slug>.<host>` of `PUBLIC_BASE_URL`. The apex stays the homepage. Unset, `path`, or a localhost or IP public host keeps `/apps/<slug>/`. A wildcard DNS record and certificate have to cover one label under that host.
 
@@ -35,9 +35,9 @@ App files are `SITE_ROOT/apps/<slug>/dist` when that directory exists, and `SITE
 
 ## Auth
 
-People sign in on the hub with a username and password. An admin can create accounts. A new account can open nothing until an admin turns apps on. Admins can open every app in `apps.yaml`. For each other account, an admin chooses per app whether it can only open that app, or can also share temporary access codes for it.
+People sign in on the hub with a username and password. An admin can create accounts. A new account can open nothing until an admin turns apps on, except apps an admin has marked public. A public app can be opened with no account. Admins can open every app in `apps.yaml`. For each other account, an admin chooses per app whether it can only open that app, or can also share temporary access codes for it.
 
-An access code is an invitation owned by the account that created it. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account tied to that browser fingerprint and IP. The same fingerprint resumes the same temporary account. A temporary account that can open only one app is sent straight to it from the homepage. Revoking the code stops new signups. An admin can revoke any code. The owner can revoke only their own. Revoking a temporary account signs that person out.
+An access code is an invitation owned by the account that created it. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account tied to that browser fingerprint and IP. The same fingerprint resumes the same temporary account. A temporary account that can open only one private app is sent straight to it from the homepage. Public apps do not count toward that. Revoking the code stops new signups. An admin can revoke any code. The owner can revoke only their own. Revoking a temporary account signs that person out.
 
 The session cookie is `bouncer_session`. Apps learn the signed-in name from `@jack-barr3tt/bouncer-client` (`currentIdentity()`). They leave when access is revoked only if they call `watchAccess(slug)`.
 

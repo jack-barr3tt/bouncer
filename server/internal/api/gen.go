@@ -146,12 +146,20 @@ type AppInfo struct {
 	Icon        string `json:"icon"`
 	Name        string `json:"name"`
 	Path        string `json:"path"`
-	Slug        string `json:"slug"`
+
+	// Public When true, anyone can open this app without an account.
+	Public bool   `json:"public"`
+	Slug   string `json:"slug"`
 }
 
 // AppListRequest defines model for AppListRequest.
 type AppListRequest struct {
 	Grants []AppGrant `json:"grants"`
+}
+
+// AppPublicRequest defines model for AppPublicRequest.
+type AppPublicRequest struct {
+	Public bool `json:"public"`
 }
 
 // CloneApp defines model for CloneApp.
@@ -323,6 +331,9 @@ type UserList struct {
 // Id defines model for Id.
 type Id = openapi_types.UUID
 
+// Slug defines model for Slug.
+type Slug = string
+
 // GitHookJSONBody defines parameters for GitHook.
 type GitHookJSONBody = map[string]interface{}
 
@@ -334,6 +345,9 @@ type RedeemAccessCodeJSONRequestBody = RedeemRequest
 
 // CreateAppJSONRequestBody defines body for CreateApp for application/json ContentType.
 type CreateAppJSONRequestBody = CreateAppRequest
+
+// SetAppPublicJSONRequestBody defines body for SetAppPublic for application/json ContentType.
+type SetAppPublicJSONRequestBody = AppPublicRequest
 
 // TriggerDeployJSONRequestBody defines body for TriggerDeploy for application/json ContentType.
 type TriggerDeployJSONRequestBody = DeployRequest
@@ -391,6 +405,9 @@ type ServerInterface interface {
 
 	// (POST /api/apps)
 	CreateApp(c fiber.Ctx) error
+
+	// (PATCH /api/apps/{slug})
+	SetAppPublic(c fiber.Ctx, slug Slug) error
 
 	// (GET /api/deploy)
 	GetDeploy(c fiber.Ctx) error
@@ -652,6 +669,35 @@ func (siw *ServerInterfaceWrapper) CreateApp(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.CreateApp(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// SetAppPublic operation middleware
+func (siw *ServerInterfaceWrapper) SetAppPublic(c fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug Slug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Params("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter slug: %w", err).Error())
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.SetAppPublic(c, slug)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -998,6 +1044,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/api/apps", wrapper.ListApps)
 
 	router.Post(options.BaseURL+"/api/apps", wrapper.CreateApp)
+
+	router.Patch(options.BaseURL+"/api/apps/:slug", wrapper.SetAppPublic)
 
 	router.Get(options.BaseURL+"/api/access/stream", wrapper.AccessStream)
 

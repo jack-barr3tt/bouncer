@@ -133,9 +133,15 @@ func (s *Server) ListApps(c fiber.Ctx) error {
 	if err != nil {
 		return s.internal(c, err)
 	}
+	public, err := s.knownPublic(c.Context())
+	if err != nil {
+		return s.internal(c, err)
+	}
+	open := publicSet(public)
 	out := make([]AppInfo, 0)
 	for _, app := range apps {
-		if principal == nil || !contains(principal.Apps, app.Slug) {
+		_, isPublic := open[app.Slug]
+		if !isPublic && (principal == nil || !contains(principal.Apps, app.Slug)) {
 			continue
 		}
 		path := app.Path
@@ -148,6 +154,7 @@ func (s *Server) ListApps(c fiber.Ctx) error {
 			Description: app.Description,
 			Path:        path,
 			Icon:        app.Icon,
+			Public:      isPublic,
 		})
 	}
 	return c.JSON(AppCatalog{Apps: out})

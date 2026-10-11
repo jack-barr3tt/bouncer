@@ -52,6 +52,12 @@ export default function UserCard({ user, apps, run }: { user: User; apps: AppInf
                       <Label htmlFor={`app-${user.id}-${app.slug}`}>{app.name}</Label>
                     </TableCell>
                     <TableCell>
+                      {app.public ? (
+                        <Label className="flex items-center gap-2" htmlFor={`app-${user.id}-${app.slug}`}>
+                          <Checkbox id={`app-${user.id}-${app.slug}`} checked disabled onChange={() => {}} />
+                          Public
+                        </Label>
+                      ) : (
                       <Select
                         id={`app-${user.id}-${app.slug}`}
                         sizing="sm"
@@ -74,6 +80,7 @@ export default function UserCard({ user, apps, run }: { user: User; apps: AppInf
                         <option value="view">View</option>
                         <option value="share">View and share</option>
                       </Select>
+                      )}
                     </TableCell>
                   </TableRow>
                 )

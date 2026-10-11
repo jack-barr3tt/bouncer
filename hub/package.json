@@ -26,6 +26,9 @@
     "sonner": "^2.0.8",
     "srvx": "^0.11.22"
   },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2"
+  },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",

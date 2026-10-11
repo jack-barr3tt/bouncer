@@ -89,19 +89,28 @@ func (s *Server) serveApp(c fiber.Ctx, slug, rel string, onHost bool) error {
 	if err != nil {
 		return s.internal(c, err)
 	}
-	if principal == nil {
+	allowed := principal != nil && contains(principal.Apps, slug)
+	if !allowed {
+		allowed, err = s.store.IsPublic(c.Context(), slug)
+		if err != nil {
+			return s.internal(c, err)
+		}
+	}
+	if !allowed && principal == nil {
 		if wantsHTML(c) {
 			return c.Redirect().Status(fiber.StatusFound).To(s.loginLocation(c, slug, onHost))
 		}
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	if !contains(principal.Apps, slug) {
-		home := "/"
-		if onHost && s.publicBase != "" {
-			home = s.publicBase + "/"
+	if !allowed {
+		if wantsHTML(c) {
+			home := "/"
+			if onHost && s.publicBase != "" {
+				home = s.publicBase + "/"
+			}
+			return c.Redirect().Status(fiber.StatusFound).To(home)
 		}
-		c.Set(fiber.HeaderContentType, "text/html; charset=utf-8")
-		return c.Status(fiber.StatusForbidden).SendString("<!doctype html><title>No access</title><p>You do not have access to this app.</p><p><a href=\"" + home + "\">All apps</a></p>")
+		return c.SendStatus(fiber.StatusForbidden)
 	}
 	app, ok, err := s.site.Lookup(slug)
 	if err != nil {

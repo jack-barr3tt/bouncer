@@ -76,12 +76,9 @@ func (s *Server) UpdateUser(c fiber.Ctx, id Id) error {
 	if user.Disabled {
 		s.broker.Publish("user:"+user.ID.String(), accessEvent("session_ended", nil))
 	} else if req.Role != nil {
-		apps := user.Apps
-		if user.Role == "admin" {
-			apps, err = s.site.Slugs()
-			if err != nil {
-				return s.internal(c, err)
-			}
+		apps, err := s.visibleApps(c.Context(), user.Apps, user.Role)
+		if err != nil {
+			return s.internal(c, err)
 		}
 		s.broker.Publish("user:"+user.ID.String(), accessEvent("access", apps))
 	}
@@ -107,12 +104,9 @@ func (s *Server) SetUserApps(c fiber.Ctx, id Id) error {
 	if err != nil {
 		return s.internal(c, err)
 	}
-	apps := user.Apps
-	if user.Role == "admin" {
-		apps, err = s.site.Slugs()
-		if err != nil {
-			return s.internal(c, err)
-		}
+	apps, err := s.visibleApps(c.Context(), user.Apps, user.Role)
+	if err != nil {
+		return s.internal(c, err)
 	}
 	s.broker.Publish("user:"+user.ID.String(), accessEvent("access", apps))
 	return c.JSON(userJSON(user))

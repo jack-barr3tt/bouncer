@@ -371,7 +371,7 @@ paths:
       operationId: listApps
       responses:
         "200":
-          description: Apps the current session can open. A signed-out request returns an empty list. An admin can open every app. Paths are the public URLs.
+          description: Apps the current session can open. A signed-out request returns public apps. An admin can open every app. Paths are the public URLs.
           content:
             application/json:
               schema:
@@ -392,6 +392,28 @@ paths:
         "401":
           $ref: "#/components/responses/Error"
         "403":
+          $ref: "#/components/responses/Error"
+  /api/apps/{slug}:
+    patch:
+      operationId: setAppPublic
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppPublicRequest"
+      responses:
+        "204":
+          description: App is public or private. A public app can be opened without an account. Existing grants are kept.
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
           $ref: "#/components/responses/Error"
   /api/access/stream:
     get:
@@ -417,6 +439,12 @@ components:
       schema:
         type: string
         format: uuid
+    Slug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
   responses:
     Error:
       description: Request failed.
@@ -461,7 +489,7 @@ components:
             $ref: "#/components/schemas/AppInfo"
     AppInfo:
       type: object
-      required: [slug, name, description, path, icon]
+      required: [slug, name, description, path, icon, public]
       properties:
         slug:
           type: string
@@ -473,6 +501,15 @@ components:
           type: string
         icon:
           type: string
+        public:
+          type: boolean
+          description: When true, anyone can open this app without an account.
+    AppPublicRequest:
+      type: object
+      required: [public]
+      properties:
+        public:
+          type: boolean
     Session:
       type: object
       required: [kind, apps, expiresAt, hub]

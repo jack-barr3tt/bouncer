@@ -173,7 +173,12 @@ func (s *Server) principal(c fiber.Ctx, token string) (*store.Principal, error) 
 	if err != nil {
 		return nil, err
 	}
-	return s.store.Principal(c.Context(), token, slugs)
+	principal, err := s.store.Principal(c.Context(), token, slugs)
+	if err != nil || principal.Role == "admin" {
+		return principal, err
+	}
+	principal.Apps, err = s.visibleApps(c.Context(), principal.Apps, principal.Role)
+	return principal, err
 }
 
 func (s *Server) setCookie(c fiber.Ctx, token string, expires time.Time) {
