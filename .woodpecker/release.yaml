@@ -29,11 +29,21 @@ steps:
       - apk add --no-cache make
       - make lint-js lint-hub
 
-  - name: publish-image
-    image: docker:27-cli
+  - name: release-changes
+    image: node:22-alpine
     depends_on:
       - test-server
       - lint-hub
+    commands:
+      - apk add --no-cache git
+      - git fetch --tags --unshallow origin || git fetch --tags origin
+      - mkdir -p .release
+      - node scripts/release-publish.mjs | tee .release/publish
+
+  - name: publish-image
+    image: docker:27-cli
+    depends_on:
+      - release-changes
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -45,38 +55,63 @@ steps:
       VERSION: ${CI_COMMIT_TAG##v}
     commands:
       - echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
-      - echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+      - test -f .release/publish
       - |
-        docker build \
-          -t "$REGISTRY/bouncer:$VERSION" \
-          -t "$REGISTRY/bouncer:latest" \
-          .
-      - docker push "$REGISTRY/bouncer:$VERSION"
-      - docker push "$REGISTRY/bouncer:latest"
-      - |
-        docker build \
-          --target builder \
-          -t "$REGISTRY/bouncer-builder:$VERSION" \
-          -t "$REGISTRY/bouncer-builder:latest" \
-          .
-      - docker push "$REGISTRY/bouncer-builder:$VERSION"
-      - docker push "$REGISTRY/bouncer-builder:latest"
+        if ! grep -qx image .release/publish && ! grep -qx builder .release/publish; then
+          echo "images unchanged since the previous tag; skipping"
+          exit 0
+        fi
+        echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+        if grep -qx image .release/publish; then
+          docker build \
+            -t "$REGISTRY/bouncer:$VERSION" \
+            -t "$REGISTRY/bouncer:latest" \
+            .
+          docker push "$REGISTRY/bouncer:$VERSION"
+          docker push "$REGISTRY/bouncer:latest"
+        else
+          echo "bouncer image unchanged since the previous tag; skipping"
+        fi
+        if grep -qx builder .release/publish; then
+          docker build \
+            --target builder \
+            -t "$REGISTRY/bouncer-builder:$VERSION" \
+            -t "$REGISTRY/bouncer-builder:latest" \
+            .
+          docker push "$REGISTRY/bouncer-builder:$VERSION"
+          docker push "$REGISTRY/bouncer-builder:latest"
+        else
+          echo "bouncer-builder image unchanged since the previous tag; skipping"
+        fi
 
   - name: stage-packages
     image: node:22-alpine
     depends_on:
-      - test-server
-      - lint-hub
+      - release-changes
     environment:
       NPM_TOKEN:
         from_secret: npm_token
       VERSION: ${CI_COMMIT_TAG##v}
     commands:
       - echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
-      - printf '%s\n' "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > "$HOME/.npmrc"
-      - npm install -g npm@^11.15.0
-      - (cd client && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && npm stage publish --access public && npm stage list --json)
-      - (cd create && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && node vendor.mjs && npm stage publish --access public && npm stage list --json)
+      - test -f .release/publish
+      - |
+        if ! grep -qx client .release/publish && ! grep -qx create .release/publish; then
+          echo "packages unchanged since the previous tag; skipping"
+          exit 0
+        fi
+        printf '%s\n' "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > "$HOME/.npmrc"
+        npm install -g npm@^11.15.0
+        if grep -qx client .release/publish; then
+          (cd client && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && npm stage publish --access public && npm stage list --json)
+        else
+          echo "client unchanged since the previous tag; skipping"
+        fi
+        if grep -qx create .release/publish; then
+          (cd create && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && node vendor.mjs && npm stage publish --access public && npm stage list --json)
+        else
+          echo "create-bouncer unchanged since the previous tag; skipping"
+        fi
 
   - name: github-release
     image: node:22-alpine
