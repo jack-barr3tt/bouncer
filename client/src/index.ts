@@ -1,4 +1,7 @@
 import { accessDestination } from './leave.js'
+import { Storage } from './storage.js'
+
+export { Storage, StorageConflict } from './storage.js'
 
 export type Identity = { kind: 'user'; username: string } | { kind: 'temporary'; nickname: string }
 
@@ -8,62 +11,73 @@ type SessionBody = {
   nickname?: unknown
 }
 
-export async function currentIdentity(): Promise<Identity | null> {
-  const response = await fetch('/api/session', { credentials: 'include' })
-  if (!response.ok) return null
-  const session = (await response.json()) as SessionBody
-  if (session.kind === 'temporary' && typeof session.nickname === 'string' && session.nickname !== '') {
-    return { kind: 'temporary', nickname: session.nickname }
-  }
-  if (session.kind === 'user' && typeof session.username === 'string' && session.username !== '') {
-    return { kind: 'user', username: session.username }
-  }
-  return null
-}
-
 type AccessBody = {
   apps?: unknown
   hub?: unknown
 }
 
+export class Bouncer {
+  readonly storage: Storage
+  private readonly slug: string
+
+  constructor(slug: string) {
+    this.slug = slug
+    this.storage = new Storage(slug)
+  }
+
+  async identity(): Promise<Identity | null> {
+    const response = await fetch('/api/session', { credentials: 'include' })
+    if (!response.ok) return null
+    const session = (await response.json()) as SessionBody
+    if (session.kind === 'temporary' && typeof session.nickname === 'string' && session.nickname !== '') {
+      return { kind: 'temporary', nickname: session.nickname }
+    }
+    if (session.kind === 'user' && typeof session.username === 'string' && session.username !== '') {
+      return { kind: 'user', username: session.username }
+    }
+    return null
+  }
+
+  watch(): void {
+    const slug = this.slug
+    let closed = false
+    let stream: EventSource | null = null
+    let attempt = 0
+    let timer = 0
+
+    const connect = () => {
+      if (closed) return
+      stream = new EventSource('/api/access/stream')
+      stream.addEventListener('open', () => {
+        attempt = 0
+      })
+      stream.addEventListener('access', (event) => {
+        const data = readEvent(event)
+        if (!data) return
+        const dest = accessDestination('access', data, slug)
+        if (dest) window.location.assign(dest)
+      })
+      stream.addEventListener('session_ended', (event) => {
+        closed = true
+        window.clearTimeout(timer)
+        stream?.close()
+        const data = readEvent(event) ?? {}
+        window.location.assign(accessDestination('session_ended', data, slug) ?? '/login')
+      })
+      stream.onerror = () => {
+        stream?.close()
+        if (closed) return
+        const delay = Math.min(30_000, 1000 * 2 ** attempt)
+        attempt = Math.min(attempt + 1, 5)
+        timer = window.setTimeout(connect, delay)
+      }
+    }
+
+    connect()
+  }
+}
+
 function readEvent(event: Event): AccessBody | null {
   if (!(event instanceof MessageEvent) || typeof event.data !== 'string') return null
   return JSON.parse(event.data) as AccessBody
-}
-
-export function watchAccess(slug: string): void {
-  let closed = false
-  let stream: EventSource | null = null
-  let attempt = 0
-  let timer = 0
-
-  const connect = () => {
-    if (closed) return
-    stream = new EventSource('/api/access/stream')
-    stream.addEventListener('open', () => {
-      attempt = 0
-    })
-    stream.addEventListener('access', (event) => {
-      const data = readEvent(event)
-      if (!data) return
-      const dest = accessDestination('access', data, slug)
-      if (dest) window.location.assign(dest)
-    })
-    stream.addEventListener('session_ended', (event) => {
-      closed = true
-      window.clearTimeout(timer)
-      stream?.close()
-      const data = readEvent(event) ?? {}
-      window.location.assign(accessDestination('session_ended', data, slug) ?? '/login')
-    })
-    stream.onerror = () => {
-      stream?.close()
-      if (closed) return
-      const delay = Math.min(30_000, 1000 * 2 ** attempt)
-      attempt = Math.min(attempt + 1, 5)
-      timer = window.setTimeout(connect, delay)
-    }
-  }
-
-  connect()
 }

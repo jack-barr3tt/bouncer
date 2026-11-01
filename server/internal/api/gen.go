@@ -5,6 +5,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -180,24 +181,18 @@ type AppPublicRequest struct {
 	Public bool `json:"public"`
 }
 
-// CloneApp defines model for CloneApp.
-type CloneApp struct {
-	Source string `json:"source"`
+// AppStorage defines model for AppStorage.
+type AppStorage struct {
+	// Data The stored JSON object. Empty when nothing has been saved.
+	Data map[string]interface{} `json:"data"`
+
+	// Revision Empty when nothing is stored. Send this value as If-Match on the next save.
+	Revision string `json:"revision"`
 }
 
-// CloneRequest defines model for CloneRequest.
-type CloneRequest struct {
-	Branch *string `json:"branch,omitempty"`
-	Name   string  `json:"name"`
-	Remote string  `json:"remote"`
-}
-
-// CloneResult defines model for CloneResult.
-type CloneResult struct {
-	Apps   []CloneApp `json:"apps"`
-	Branch string     `json:"branch"`
-	Path   string     `json:"path"`
-	Remote string     `json:"remote"`
+// AppStorageRevision defines model for AppStorageRevision.
+type AppStorageRevision struct {
+	Revision string `json:"revision"`
 }
 
 // CreateAccessCodeRequest defines model for CreateAccessCodeRequest.
@@ -375,6 +370,15 @@ type Id = openapi_types.UUID
 // Slug defines model for Slug.
 type Slug = string
 
+// PutAppStorageJSONBody defines parameters for PutAppStorage.
+type PutAppStorageJSONBody map[string]interface{}
+
+// PutAppStorageParams defines parameters for PutAppStorage.
+type PutAppStorageParams struct {
+	// IfMatch Revision returned by the last load or save. Omit it when creating the document.
+	IfMatch *string `json:"If-Match,omitempty"`
+}
+
 // GitHookJSONBody defines parameters for GitHook.
 type GitHookJSONBody = map[string]interface{}
 
@@ -389,6 +393,9 @@ type CreateAppJSONRequestBody = CreateAppRequest
 
 // SetAppPublicJSONRequestBody defines body for SetAppPublic for application/json ContentType.
 type SetAppPublicJSONRequestBody = AppPublicRequest
+
+// PutAppStorageJSONRequestBody defines body for PutAppStorage for application/json ContentType.
+type PutAppStorageJSONRequestBody PutAppStorageJSONBody
 
 // TriggerDeployJSONRequestBody defines body for TriggerDeploy for application/json ContentType.
 type TriggerDeployJSONRequestBody = DeployRequest
@@ -452,6 +459,15 @@ type ServerInterface interface {
 
 	// (PATCH /api/apps/{slug})
 	SetAppPublic(c fiber.Ctx, slug Slug) error
+
+	// (DELETE /api/apps/{slug}/storage)
+	DeleteAppStorage(c fiber.Ctx, slug Slug) error
+
+	// (GET /api/apps/{slug}/storage)
+	GetAppStorage(c fiber.Ctx, slug Slug) error
+
+	// (PUT /api/apps/{slug}/storage)
+	PutAppStorage(c fiber.Ctx, slug Slug, params PutAppStorageParams) error
 
 	// (GET /api/deploy)
 	GetDeploy(c fiber.Ctx) error
@@ -745,6 +761,115 @@ func (siw *ServerInterfaceWrapper) SetAppPublic(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.SetAppPublic(c, slug)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteAppStorage operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAppStorage(c fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug Slug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Params("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter slug: %w", err).Error())
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.DeleteAppStorage(c, slug)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetAppStorage operation middleware
+func (siw *ServerInterfaceWrapper) GetAppStorage(c fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug Slug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Params("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter slug: %w", err).Error())
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.GetAppStorage(c, slug)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// PutAppStorage operation middleware
+func (siw *ServerInterfaceWrapper) PutAppStorage(c fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug Slug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", c.Params("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter slug: %w", err).Error())
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutAppStorageParams
+
+	headers := c.GetReqHeaders()
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch string
+		n := len(valueList)
+		if n != 1 {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName If-Match, 1 is required, but %d found", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter If-Match: %w", err).Error())
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.PutAppStorage(c, slug, params)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -1113,6 +1238,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/api/apps", wrapper.CreateApp)
 
 	router.Patch(options.BaseURL+"/api/apps/:slug", wrapper.SetAppPublic)
+
+	router.Delete(options.BaseURL+"/api/apps/:slug/storage", wrapper.DeleteAppStorage)
+
+	router.Get(options.BaseURL+"/api/apps/:slug/storage", wrapper.GetAppStorage)
+
+	router.Put(options.BaseURL+"/api/apps/:slug/storage", wrapper.PutAppStorage)
 
 	router.Get(options.BaseURL+"/api/access/stream", wrapper.AccessStream)
 

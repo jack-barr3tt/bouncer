@@ -38,14 +38,18 @@ npm install @jack-barr3tt/bouncer-client
 ```
 
 ```ts
-import { currentIdentity, watchAccess } from '@jack-barr3tt/bouncer-client'
+import { Bouncer } from '@jack-barr3tt/bouncer-client'
 
-const who = await currentIdentity()
+const bouncer = new Bouncer('your-slug')
+const who = await bouncer.identity()
 // { kind: 'user', username } or { kind: 'temporary', nickname }
 
-watchAccess('your-slug')
+bouncer.watch()
+
+await bouncer.storage.setItem('theme', 'dark')
+const theme = await bouncer.storage.getItem('theme')
 ```
 
-`currentIdentity()` reads `GET /api/session` and returns the signed-in username or nickname. Use that value however the app wants. `watchAccess(slug)` listens for access changes and leaves the page when this app is revoked. Both are optional. Vite dev is not behind the gate; proxy `/api` to the platform (port 8080) so the client can reach it.
+`identity()` reads `GET /api/session` and returns the signed-in username or nickname. Use that value however the app wants. `watch()` listens for access changes and leaves the page when this app is revoked. `storage` keeps strings for the signed-in person with the localStorage methods `getItem`, `setItem`, `removeItem`, `clear`, `key`, and `length`. Each returns a promise. The library loads and saves. A signed-out `getItem` returns `null`. The deployment caps every document with `STORAGE_MAX_BYTES`, which defaults to 1 MiB. Vite dev is not behind the gate; proxy `/api` to the platform (port 8080) so the client can reach it.
 
 Do not copy the client into the app, and do not add another auth server.

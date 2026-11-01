@@ -11,6 +11,7 @@ import (
 	"github.com/jack-barr3tt/bouncer/internal/access"
 	"github.com/jack-barr3tt/bouncer/internal/deploy"
 	"github.com/jack-barr3tt/bouncer/internal/site"
+	"github.com/jack-barr3tt/bouncer/internal/storage"
 	"github.com/jack-barr3tt/bouncer/internal/store"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -20,15 +21,17 @@ const cookieName = "bouncer_session"
 var errHandled = errors.New("response handled")
 
 type Config struct {
-	Pool           *pgxpool.Pool
-	SiteRoot       string
-	HubUpstream    string
-	PublicBaseURL  string
-	Routing        string
-	BcryptCost     int
-	TrustedProxies []string
-	CookieSecure   string
-	Deploy         *deploy.Service
+	Pool            *pgxpool.Pool
+	SiteRoot        string
+	HubUpstream     string
+	PublicBaseURL   string
+	Routing         string
+	BcryptCost      int
+	TrustedProxies  []string
+	CookieSecure    string
+	Deploy          *deploy.Service
+	Storage         storage.Store
+	StorageMaxBytes int
 }
 
 type Server struct {
@@ -40,6 +43,8 @@ type Server struct {
 	cookieSecure string
 	hubUpstream  string
 	deploy       *deploy.Service
+	objects      storage.Store
+	storageMax   int
 	proxies      sync.Map
 }
 
@@ -56,7 +61,16 @@ func NewApp(cfg Config) (*fiber.App, error) {
 	if err != nil {
 		return nil, err
 	}
+	maxBytes := cfg.StorageMaxBytes
+	if maxBytes <= 0 {
+		maxBytes = storage.DefaultMaxBytes
+	}
+	bodyLimit := 4 << 20
+	if maxBytes > bodyLimit {
+		bodyLimit = maxBytes
+	}
 	app := fiber.New(fiber.Config{
+		BodyLimit:  bodyLimit,
 		TrustProxy: len(cfg.TrustedProxies) > 0,
 		TrustProxyConfig: fiber.TrustProxyConfig{
 			Proxies: cfg.TrustedProxies,
@@ -78,6 +92,8 @@ func NewApp(cfg Config) (*fiber.App, error) {
 		cookieSecure: strings.ToLower(strings.TrimSpace(cfg.CookieSecure)),
 		hubUpstream:  strings.TrimRight(strings.TrimSpace(cfg.HubUpstream), "/"),
 		deploy:       cfg.Deploy,
+		objects:      cfg.Storage,
+		storageMax:   maxBytes,
 	}
 	app.Use(srv.gate)
 	RegisterHandlers(app, srv)

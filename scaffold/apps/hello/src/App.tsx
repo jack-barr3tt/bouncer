@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { currentIdentity, watchAccess, type Identity } from '@jack-barr3tt/bouncer-client'
+import { Bouncer, type Identity } from '@jack-barr3tt/bouncer-client'
+
+const bouncer = new Bouncer('hello')
 
 export default function App() {
   const [who, setWho] = useState<Identity | null>(null)
 
   useEffect(() => {
-    watchAccess('hello')
-    void currentIdentity().then(setWho)
+    bouncer.watch()
+    void bouncer.identity().then(setWho)
   }, [])
 
   const name = who?.kind === 'user' ? who.username : who?.nickname

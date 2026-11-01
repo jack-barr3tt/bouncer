@@ -60,6 +60,22 @@ export interface AppPublicRequest {
   public: boolean;
 }
 
+/**
+ * The stored JSON object. Empty when nothing has been saved.
+ */
+export type AppStorageData = { [key: string]: unknown };
+
+export interface AppStorage {
+  /** The stored JSON object. Empty when nothing has been saved. */
+  data: AppStorageData;
+  /** Empty when nothing is stored. Send this value as If-Match on the next save. */
+  revision: string;
+}
+
+export interface AppStorageRevision {
+  revision: string;
+}
+
 export type SessionKind = typeof SessionKind[keyof typeof SessionKind];
 
 
@@ -272,6 +288,11 @@ export interface DeployStatus {
 export type ErrorResponse = Error;
 
 export type GitHookBody = { [key: string]: unknown };
+
+/**
+ * The JSON object to store. Arrays and other JSON values are rejected.
+ */
+export type PutAppStorageBody = { [key: string]: unknown };
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
@@ -1949,6 +1970,216 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getSetAppPublicMutationOptions(options), queryClient);
+    }
+
+export const getAppStorage = (
+    slug: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AppStorage>(
+      {url: `/api/apps/${slug}/storage`, method: 'GET', signal
+    },
+      options);
+    }
+
+
+
+
+export const getGetAppStorageQueryKey = (slug: string,) => {
+    return [
+    `/api/apps/${slug}/storage`
+    ] as const;
+    }
+
+
+export const getGetAppStorageQueryOptions = <TData = Awaited<ReturnType<typeof getAppStorage>>, TError = ErrorType<ErrorResponse>>(slug: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAppStorage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAppStorageQueryKey(slug);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAppStorage>>> = ({ signal }) => getAppStorage(slug, requestOptions, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAppStorage>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAppStorageQueryResult = NonNullable<Awaited<ReturnType<typeof getAppStorage>>>
+export type GetAppStorageQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetAppStorage<TData = Awaited<ReturnType<typeof getAppStorage>>, TError = ErrorType<ErrorResponse>>(
+ slug: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAppStorage>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAppStorage>>,
+          TError,
+          Awaited<ReturnType<typeof getAppStorage>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAppStorage<TData = Awaited<ReturnType<typeof getAppStorage>>, TError = ErrorType<ErrorResponse>>(
+ slug: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAppStorage>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAppStorage>>,
+          TError,
+          Awaited<ReturnType<typeof getAppStorage>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAppStorage<TData = Awaited<ReturnType<typeof getAppStorage>>, TError = ErrorType<ErrorResponse>>(
+ slug: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAppStorage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAppStorage<TData = Awaited<ReturnType<typeof getAppStorage>>, TError = ErrorType<ErrorResponse>>(
+ slug: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAppStorage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAppStorageQueryOptions(slug,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const putAppStorage = (
+    slug: string,
+    putAppStorageBody: BodyType<PutAppStorageBody>,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<AppStorageRevision>(
+      {url: `/api/apps/${slug}/storage`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: putAppStorageBody, signal
+    },
+      options);
+    }
+
+
+
+
+export const getPutAppStorageMutationKey = () => ['putAppStorage'] as const;
+
+export const getPutAppStorageMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putAppStorage>>, TError,PutAppStorageMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof putAppStorage>>, TError,PutAppStorageMutationVariables, TContext> => {
+
+const mutationKey = getPutAppStorageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putAppStorage>>, PutAppStorageMutationVariables> = (props) => {
+          const {slug,data} = props ?? {};
+
+          return  putAppStorage(slug,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutAppStorageMutationResult = NonNullable<Awaited<ReturnType<typeof putAppStorage>>>
+    export type PutAppStorageMutationBody = BodyType<PutAppStorageBody>
+    export type PutAppStorageMutationError = ErrorType<ErrorResponse>
+    export type PutAppStorageMutationVariables = {slug: string;data: BodyType<PutAppStorageBody>}
+
+    export const usePutAppStorage = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putAppStorage>>, TError,PutAppStorageMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putAppStorage>>,
+        TError,
+        PutAppStorageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutAppStorageMutationOptions(options), queryClient);
+    }
+
+export const deleteAppStorage = (
+    slug: string,
+ options?: SecondParameter<typeof customInstance>,signal?: AbortSignal
+) => {
+
+
+      return customInstance<void>(
+      {url: `/api/apps/${slug}/storage`, method: 'DELETE', signal
+    },
+      options);
+    }
+
+
+
+
+export const getDeleteAppStorageMutationKey = () => ['deleteAppStorage'] as const;
+
+export const getDeleteAppStorageMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAppStorage>>, TError,DeleteAppStorageMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAppStorage>>, TError,DeleteAppStorageMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAppStorageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAppStorage>>, DeleteAppStorageMutationVariables> = (props) => {
+          const {slug} = props ?? {};
+
+          return  deleteAppStorage(slug,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAppStorageMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAppStorage>>>
+
+    export type DeleteAppStorageMutationError = ErrorType<ErrorResponse>
+    export type DeleteAppStorageMutationVariables = {slug: string}
+
+    export const useDeleteAppStorage = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAppStorage>>, TError,DeleteAppStorageMutationVariables, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAppStorage>>,
+        TError,
+        DeleteAppStorageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAppStorageMutationOptions(options), queryClient);
     }
 
 export const accessStream = (

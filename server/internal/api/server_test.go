@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,8 +16,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/jack-barr3tt/bouncer/db"
 	"github.com/jack-barr3tt/bouncer/internal/api"
+	"github.com/jack-barr3tt/bouncer/internal/storage"
 	"github.com/jack-barr3tt/bouncer/internal/store"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
@@ -785,12 +788,191 @@ func containsAll(have []string, want ...string) bool {
 	return true
 }
 
+func TestAppStorage(t *testing.T) {
+	mem := storage.NewMemory()
+	app := newConfiguredApp(t, configuredApp{storage: mem, storageMax: 32})
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+
+	if res := get(t, app, "/api/apps/hello/storage", "", false); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("signed out: %d %s", res.StatusCode, readBody(res))
+	}
+	if res := putStorage(t, app, "/api/apps/missing/storage", `{}`, admin, ""); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("missing app: %d %s", res.StatusCode, readBody(res))
+	}
+
+	empty := get(t, app, "/api/apps/hello/storage", admin, false)
+	var doc struct {
+		Data     json.RawMessage `json:"data"`
+		Revision string          `json:"revision"`
+	}
+	decode(t, empty, &doc)
+	if empty.StatusCode != http.StatusOK || string(doc.Data) != "{}" || doc.Revision != "" {
+		t.Fatalf("empty: %d %+v", empty.StatusCode, doc)
+	}
+
+	if res := putStorage(t, app, "/api/apps/hello/storage", `[]`, admin, ""); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("array: %d %s", res.StatusCode, readBody(res))
+	}
+	if res := putStorage(t, app, "/api/apps/hello/storage", `{"a":1} nope`, admin, ""); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("trailing: %d %s", res.StatusCode, readBody(res))
+	}
+	if res := putStorage(t, app, "/api/apps/hello/storage", `{"value":"012345678901234567890123456789"}`, admin, ""); res.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversize: %d %s", res.StatusCode, readBody(res))
+	}
+
+	created := putStorage(t, app, "/api/apps/hello/storage", `{"n":1}`, admin, "")
+	var saved struct {
+		Revision string `json:"revision"`
+	}
+	decode(t, created, &saved)
+	if created.StatusCode != http.StatusOK || saved.Revision == "" {
+		t.Fatalf("create: %d %+v", created.StatusCode, saved)
+	}
+	if res := putStorage(t, app, "/api/apps/hello/storage", `{"n":2}`, admin, ""); res.StatusCode != http.StatusConflict {
+		t.Fatalf("second create: %d %s", res.StatusCode, readBody(res))
+	}
+	if res := putStorage(t, app, "/api/apps/hello/storage", `{"n":2}`, admin, "stale"); res.StatusCode != http.StatusConflict {
+		t.Fatalf("stale: %d %s", res.StatusCode, readBody(res))
+	}
+	updated := putStorage(t, app, "/api/apps/hello/storage", `{"n":2}`, admin, saved.Revision)
+	decode(t, updated, &saved)
+	if updated.StatusCode != http.StatusOK || saved.Revision == "" {
+		t.Fatalf("update: %d %s", updated.StatusCode, readBody(updated))
+	}
+	loaded := get(t, app, "/api/apps/hello/storage", admin, false)
+	decode(t, loaded, &doc)
+	if loaded.StatusCode != http.StatusOK || string(doc.Data) != `{"n":2}` || doc.Revision != saved.Revision {
+		t.Fatalf("loaded: %d data %s revision %s", loaded.StatusCode, doc.Data, doc.Revision)
+	}
+
+	createdUser := postJSON(t, app, "/api/users", map[string]string{"username": "sam", "password": "password2"}, admin)
+	if createdUser.StatusCode != http.StatusCreated {
+		t.Fatalf("user: %d %s", createdUser.StatusCode, readBody(createdUser))
+	}
+	sam := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "sam", "password": "password2"}, ""))
+	if res := get(t, app, "/api/apps/hello/storage", sam, false); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("ungranted: %d %s", res.StatusCode, readBody(res))
+	}
+	if res := patchJSON(t, app, "/api/apps/hello", map[string]bool{"public": true}, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("public: %d %s", res.StatusCode, readBody(res))
+	}
+	if res := get(t, app, "/api/apps/hello/storage", "", false); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("public guest: %d %s", res.StatusCode, readBody(res))
+	}
+	samSaved := putStorage(t, app, "/api/apps/hello/storage", `{"who":"sam"}`, sam, "")
+	decode(t, samSaved, &saved)
+	if samSaved.StatusCode != http.StatusOK {
+		t.Fatalf("sam save: %d %s", samSaved.StatusCode, readBody(samSaved))
+	}
+	samLoaded := get(t, app, "/api/apps/hello/storage", sam, false)
+	decode(t, samLoaded, &doc)
+	if string(doc.Data) != `{"who":"sam"}` {
+		t.Fatalf("sam sees %s", doc.Data)
+	}
+	adminLoaded := get(t, app, "/api/apps/hello/storage", admin, false)
+	decode(t, adminLoaded, &doc)
+	if string(doc.Data) != `{"n":2}` {
+		t.Fatalf("admin sees %s", doc.Data)
+	}
+
+	if res := deleteReq(t, app, "/api/apps/hello/storage", admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", res.StatusCode, readBody(res))
+	}
+	cleared := get(t, app, "/api/apps/hello/storage", admin, false)
+	decode(t, cleared, &doc)
+	if string(doc.Data) != "{}" || doc.Revision != "" {
+		t.Fatalf("cleared: %+v", doc)
+	}
+
+	expires := time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	if res := patchJSON(t, app, "/api/apps/hello", map[string]bool{"public": false}, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("private: %d %s", res.StatusCode, readBody(res))
+	}
+	codeRes := postJSON(t, app, "/api/access-codes", map[string]any{
+		"appSlugs": []string{"hello"}, "expiresAt": expires, "maxSignups": 1,
+	}, admin)
+	var code struct {
+		ID  string `json:"id"`
+		URL string `json:"url"`
+	}
+	decode(t, codeRes, &code)
+	if codeRes.StatusCode != http.StatusCreated {
+		t.Fatalf("code: %d %s", codeRes.StatusCode, readBody(codeRes))
+	}
+	joinCode := code.URL[strings.LastIndex(code.URL, "/")+1:]
+	joined := postJSON(t, app, "/api/access-codes/redeem", map[string]string{
+		"code": joinCode, "nickname": "Ada", "fingerprint": "browser-a",
+	}, "")
+	tempCookie := cookie(t, joined)
+	if res := putStorage(t, app, "/api/apps/hello/storage", `{"guest":true}`, tempCookie, ""); res.StatusCode != http.StatusOK {
+		t.Fatalf("temp save: %d %s", res.StatusCode, readBody(res))
+	}
+	accounts := get(t, app, "/api/access-codes/"+code.ID+"/accounts", admin, false)
+	var listed struct {
+		Accounts []struct {
+			ID string `json:"id"`
+		} `json:"accounts"`
+	}
+	decode(t, accounts, &listed)
+	if len(listed.Accounts) != 1 {
+		t.Fatalf("accounts: %+v", listed.Accounts)
+	}
+	tempID := listed.Accounts[0].ID
+	if res := postJSON(t, app, "/api/temporary-accounts/"+tempID+"/revoke", map[string]string{}, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("revoke: %d %s", res.StatusCode, readBody(res))
+	}
+	if _, err := mem.Get(t.Context(), storage.TempKey(mustID(t, tempID), "hello")); !errors.Is(err, storage.ErrNotFound) {
+		t.Fatalf("revoked object: %v", err)
+	}
+
+	second := postJSON(t, app, "/api/access-codes", map[string]any{
+		"appSlugs": []string{"hello"}, "expiresAt": expires, "maxSignups": 1,
+	}, admin)
+	decode(t, second, &code)
+	joinCode = code.URL[strings.LastIndex(code.URL, "/")+1:]
+	again := postJSON(t, app, "/api/access-codes/redeem", map[string]string{
+		"code": joinCode, "nickname": "Bea", "fingerprint": "browser-b",
+	}, "")
+	if res := putStorage(t, app, "/api/apps/hello/storage", `{"guest":true}`, cookie(t, again), ""); res.StatusCode != http.StatusOK {
+		t.Fatalf("second temp: %d %s", res.StatusCode, readBody(res))
+	}
+	listed.Accounts = nil
+	decode(t, get(t, app, "/api/access-codes/"+code.ID+"/accounts", admin, false), &listed)
+	tempID = listed.Accounts[0].ID
+	if res := deleteReq(t, app, "/api/access-codes/"+code.ID, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete code: %d %s", res.StatusCode, readBody(res))
+	}
+	if _, err := mem.Get(t.Context(), storage.TempKey(mustID(t, tempID), "hello")); !errors.Is(err, storage.ErrNotFound) {
+		t.Fatalf("deleted code object: %v", err)
+	}
+}
+
+func TestAppStorageUnconfigured(t *testing.T) {
+	app := newApp(t)
+	admin := cookie(t, postJSON(t, app, "/api/login", map[string]string{"username": "admin", "password": "password1"}, ""))
+	res := get(t, app, "/api/apps/hello/storage", admin, false)
+	if res.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("unconfigured: %d %s", res.StatusCode, readBody(res))
+	}
+}
+
+func mustID(t *testing.T, raw string) uuid.UUID {
+	t.Helper()
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
 type configuredApp struct {
 	registry    string
 	publicBase  string
 	routing     string
 	root        string
 	hubUpstream string
+	storage     storage.Store
+	storageMax  int
 }
 
 func newApp(t *testing.T) *fiber.App {
@@ -841,13 +1023,15 @@ func newConfiguredApp(t *testing.T, cfg configuredApp) *fiber.App {
 		upstream = stub.URL
 	}
 	app, err := api.NewApp(api.Config{
-		Pool:          pool,
-		SiteRoot:      root,
-		PublicBaseURL: publicBase,
-		Routing:       cfg.routing,
-		BcryptCost:    bcrypt.MinCost,
-		CookieSecure:  "false",
-		HubUpstream:   upstream,
+		Pool:            pool,
+		SiteRoot:        root,
+		PublicBaseURL:   publicBase,
+		Routing:         cfg.routing,
+		BcryptCost:      bcrypt.MinCost,
+		CookieSecure:    "false",
+		HubUpstream:     upstream,
+		Storage:         cfg.storage,
+		StorageMaxBytes: cfg.storageMax,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -873,6 +1057,16 @@ func postJSON(t *testing.T, app *fiber.App, path string, body any, cookieHeader 
 func putJSON(t *testing.T, app *fiber.App, path string, body any, cookieHeader string) *http.Response {
 	t.Helper()
 	return sendJSON(t, app, http.MethodPut, path, body, cookieHeader)
+}
+
+func putStorage(t *testing.T, app *fiber.App, path, body, cookieHeader, revision string) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if revision != "" {
+		req.Header.Set("If-Match", revision)
+	}
+	return do(t, app, req, cookieHeader, false)
 }
 
 func deleteReq(t *testing.T, app *fiber.App, path, cookieHeader string) *http.Response {
