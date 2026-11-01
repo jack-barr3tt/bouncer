@@ -1,7 +1,15 @@
 FROM node:22-alpine AS hello
 WORKDIR /src
+COPY client/package.json client/package-lock.json client/tsconfig.json client/
+COPY client/src client/src
+RUN npm ci --prefix client && npm run build --prefix client
 COPY scaffold/apps/hello scaffold/apps/hello
-RUN npm ci --prefix scaffold/apps/hello && npm run build --prefix scaffold/apps/hello
+RUN npm ci --prefix scaffold/apps/hello \
+  && rm -rf scaffold/apps/hello/node_modules/@jack-barr3tt/bouncer-client \
+  && mkdir -p scaffold/apps/hello/node_modules/@jack-barr3tt/bouncer-client \
+  && cp client/package.json scaffold/apps/hello/node_modules/@jack-barr3tt/bouncer-client/package.json \
+  && cp -R client/dist scaffold/apps/hello/node_modules/@jack-barr3tt/bouncer-client/dist \
+  && npm run build --prefix scaffold/apps/hello
 
 FROM node:22-alpine AS hub
 WORKDIR /src
