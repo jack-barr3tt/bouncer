@@ -203,10 +203,14 @@ export default function DeploySection() {
       ) : null}
       {deploy == null ? null : deploy.enabled ? (
         <div className="mt-4">
-          <p className="font-mono text-sm">{deploy.webhookUrl}</p>
-          <Button className="mt-3" color="light" size="sm" onClick={() => void navigator.clipboard.writeText(deploy.webhookUrl)}>
-            Copy webhook URL
-          </Button>
+          {deploy.webhookUrl ? (
+            <>
+              <p className="font-mono text-sm">{deploy.webhookUrl}</p>
+              <Button className="mt-3" color="light" size="sm" onClick={() => void navigator.clipboard.writeText(deploy.webhookUrl)}>
+                Copy webhook URL
+              </Button>
+            </>
+          ) : null}
           <div className="mt-4 grid gap-4">
             {deploy.repos.map((repo) => (
               <Card key={`${repo.path}:${repo.remote}`}>

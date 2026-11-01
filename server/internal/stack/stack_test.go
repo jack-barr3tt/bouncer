@@ -2,6 +2,7 @@ package stack
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,6 +159,96 @@ func TestReconcileAppliesStackThenStops(t *testing.T) {
 	}
 }
 
+func TestReconcileReplacesAfterAFailedStackUp(t *testing.T) {
+	deploy := t.TempDir()
+	share := t.TempDir()
+	if err := os.WriteFile(filepath.Join(deploy, ".env"), []byte("IMAGE_TAG=1.0.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	spec := "- name: PORT\n  value: \"8080\"\n"
+	if err := os.WriteFile(filepath.Join(share, "env.yaml"), []byte(spec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stackFile := filepath.Join(share, "stack.yml")
+	if err := os.WriteFile(stackFile, []byte("services: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	composeFile := filepath.Join(deploy, "docker-compose.yml")
+	if err := os.WriteFile(composeFile, []byte("services: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var mu sync.Mutex
+	var calls [][]string
+	replaced := make(chan struct{})
+	run := func(_ context.Context, name string, args ...string) error {
+		mu.Lock()
+		calls = append(calls, append([]string{name}, args...))
+		mu.Unlock()
+		file, action := composeFileAndAction(args)
+		if file == stackFile && action == "up" {
+			return errors.New("rustfs unhealthy")
+		}
+		if file == composeFile && action == "up" {
+			close(replaced)
+			cancel()
+		}
+		return nil
+	}
+
+	errc := make(chan error, 1)
+	go func() {
+		errc <- Reconcile(ctx, Options{
+			DeployDir: deploy,
+			ShareDir:  share,
+			Version:   "1.0.0",
+			Interval:  time.Hour,
+			Catalog:   fixedCatalog{version: "1.1.0", example: spec},
+		}, run)
+	}()
+	select {
+	case <-replaced:
+	case <-time.After(2 * time.Second):
+		t.Fatal("reconciler was not replaced")
+	}
+	if err := <-errc; err != nil {
+		t.Fatal(err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	envFile := filepath.Join(deploy, ".env")
+	want := [][]string{
+		{"docker", "compose", "--project-directory", deploy, "--env-file", envFile, "-f", stackFile, "pull"},
+		{"docker", "compose", "--project-directory", deploy, "--env-file", envFile, "-f", stackFile, "up", "-d"},
+		{"docker", "compose", "--project-directory", deploy, "--env-file", envFile, "-f", composeFile, "up", "-d"},
+	}
+	if len(calls) != len(want) {
+		t.Fatalf("calls: %v", calls)
+	}
+	for i, call := range want {
+		if strings.Join(calls[i], " ") != strings.Join(call, " ") {
+			t.Fatalf("call %d: got %q want %q", i, calls[i], call)
+		}
+	}
+}
+
+func composeFileAndAction(args []string) (string, string) {
+	file := ""
+	action := ""
+	for i, arg := range args {
+		if arg == "-f" && i+1 < len(args) {
+			file = args[i+1]
+		}
+		if arg == "pull" || arg == "up" || arg == "stop" {
+			action = arg
+		}
+	}
+	return file, action
+}
+
 type nopCatalog struct{}
 
 func (nopCatalog) Latest(context.Context) (string, error) { return "", nil }
@@ -197,7 +288,6 @@ func TestDeployEnvSpecMarksStorageSecretsRequired(t *testing.T) {
 		"PUBLIC_BASE_URL",
 		"AUTH_BOOTSTRAP_USERNAME",
 		"AUTH_BOOTSTRAP_PASSWORD",
-		"DEPLOY_WEBHOOK_SECRET",
 		"DEPLOY_TOKEN",
 		"BUILDER_TOKEN",
 		"RUSTFS_ACCESS_KEY",
@@ -207,6 +297,9 @@ func TestDeployEnvSpecMarksStorageSecretsRequired(t *testing.T) {
 		if !required[name] {
 			t.Fatalf("required: %v", required)
 		}
+	}
+	if required["DEPLOY_WEBHOOK_SECRET"] {
+		t.Fatal("webhook secret is required")
 	}
 	rendered := Render(fields)
 	if !strings.Contains(rendered, "RUSTFS_ACCESS_KEY=\n") || strings.Contains(rendered, "RUSTFS_ACCESS_KEY=BOUNCER") {
