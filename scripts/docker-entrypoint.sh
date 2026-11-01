@@ -34,7 +34,7 @@ if [ -e "$SITE_ROOT/apps/hello/package.json" ] && [ ! -e "$SITE_ROOT/apps/hello/
   cp -a "$SCAFFOLD/apps/hello/dist/." "$SITE_ROOT/apps/hello/dist/"
 fi
 
-/usr/local/bin/bouncer adopt
+bouncer adopt
 
 if [ "${1:-}" = "init" ]; then
   exit 0
@@ -45,4 +45,4 @@ if [ -n "${HUB_UPSTREAM:-}" ] && [ -f /opt/bouncer/hub/dist/server/server.js ]; 
   npx srvx --prod --host 127.0.0.1 --port 3000 --dir . --entry dist/server/server.js -s dist/client &
 fi
 
-exec /usr/local/bin/bouncer
+exec bouncer

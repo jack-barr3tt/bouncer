@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -19,10 +19,17 @@ function scaffold(root) {
 }
 
 function init(site, scaffoldDir) {
-  return spawnSync('sh', [entrypoint, 'init'], {
-    env: { ...process.env, SITE_ROOT: site, SCAFFOLD: scaffoldDir },
+  const bin = join(site, '..', 'bin')
+  const log = join(site, '..', 'bouncer.log')
+  mkdirSync(bin)
+  writeFileSync(join(bin, 'bouncer'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$BOUNCER_LOG"\nexit 0\n')
+  chmodSync(join(bin, 'bouncer'), 0o755)
+  const result = spawnSync('sh', [entrypoint, 'init'], {
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, SITE_ROOT: site, SCAFFOLD: scaffoldDir, BOUNCER_LOG: log },
     encoding: 'utf8',
   })
+  result.log = readFileSync(log, 'utf8')
+  return result
 }
 
 test('init writes Hello into an empty site', () => {
@@ -30,6 +37,7 @@ test('init writes Hello into an empty site', () => {
   const site = join(root, 'site')
   const result = init(site, scaffold(root))
   assert.equal(result.status, 0, result.stderr)
+  assert.match(result.log, /^adopt\n/)
   assert.equal(readFileSync(join(site, 'apps', 'hello', 'dist', 'index.html'), 'utf8'), 'built\n')
   assert.match(readFileSync(join(site, 'apps.yaml'), 'utf8'), /slug: hello/)
 })
@@ -42,6 +50,7 @@ test('init fills a missing Hello build and leaves apps.yaml in place', () => {
   writeFileSync(join(site, 'apps', 'hello', 'package.json'), '{}\n')
   const result = init(site, scaffold(root))
   assert.equal(result.status, 0, result.stderr)
+  assert.match(result.log, /^adopt\n/)
   assert.equal(readFileSync(join(site, 'apps.yaml'), 'utf8'), 'kept\n')
   assert.equal(readFileSync(join(site, 'apps', 'hello', 'dist', 'index.html'), 'utf8'), 'built\n')
 })
