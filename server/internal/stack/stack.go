@@ -179,7 +179,7 @@ func Reconcile(ctx context.Context, opts Options, run Runner) error {
 		interval = opts.Interval
 	}
 	if err := maintain(ctx, opts, run); err != nil && ctx.Err() == nil {
-		return err
+		log.Printf("update: %v", err)
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -259,14 +259,19 @@ func maintain(ctx context.Context, opts Options, run Runner) error {
 	if err := compose(ctx, run, deploy, stackFile, "pull"); err != nil {
 		return err
 	}
-	if err := compose(ctx, run, deploy, stackFile, "up", "-d"); err != nil {
-		return err
-	}
+	upErr := compose(ctx, run, deploy, stackFile, "up", "-d")
 	if !decision.replace {
-		return nil
+		return upErr
 	}
 	replacing.Store(true)
-	return compose(context.Background(), run, deploy, filepath.Join(deploy, "docker-compose.yml"), "up", "-d")
+	replaceErr := compose(context.Background(), run, deploy, filepath.Join(deploy, "docker-compose.yml"), "up", "-d")
+	if upErr != nil && replaceErr != nil {
+		return errors.Join(upErr, replaceErr)
+	}
+	if replaceErr != nil {
+		return replaceErr
+	}
+	return upErr
 }
 
 func compose(ctx context.Context, run Runner, deployDir, stackFile string, extra ...string) error {

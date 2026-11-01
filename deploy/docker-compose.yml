@@ -1,6 +1,7 @@
 # bouncer-reconcile
 # The deploy directory is mounted at its host path. Compose gives volume
 # sources to the Docker daemon, which reads the host filesystem.
+name: bouncer
 services:
   reconcile:
     image: ${REGISTRY}/bouncer:${IMAGE_TAG}

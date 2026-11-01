@@ -14,6 +14,29 @@ import (
 	"time"
 )
 
+func TestEmptyWebhookSecretHidesTheHook(t *testing.T) {
+	svc := &Service{cfg: Config{
+		Remote:      "git@github.com:you/apps.git",
+		PublicBase:  "https://apps.example.com",
+		DeployToken: "token",
+	}}
+	status, err := svc.Status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Enabled || status.WebhookURL != "" {
+		t.Fatalf("status: %+v", status)
+	}
+	svc.cfg.WebhookSecret = "secret"
+	status, err = svc.Status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.WebhookURL != "https://apps.example.com/api/hooks/git" {
+		t.Fatalf("webhook url: %q", status.WebhookURL)
+	}
+}
+
 func TestSiteCheckoutBecomesTheRemote(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not installed")

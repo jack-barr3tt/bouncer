@@ -158,7 +158,7 @@ function printResult(dir: string, sitePath: string, port: string, ci: CiSystem, 
   console.log('')
   console.log(`Webhook. In ${host}, add a webhook for push events to:`)
   console.log(`  ${publicUrl}/api/hooks/git`)
-  console.log('Choose a long secret. Set DEPLOY_WEBHOOK_SECRET in deploy/.env to that secret, and enter the same secret in the webhook.')
+  console.log('Choose a long secret. Set DEPLOY_WEBHOOK_SECRET in deploy/.env to that secret, and enter the same secret in the webhook. Leave that value empty to keep hooks off.')
   console.log('')
   console.log(`CI secrets. The deploy workflow in this repository calls Bouncer on a push to main. In the ${host} repository secrets, set:`)
   if (ci === 'woodpecker') {

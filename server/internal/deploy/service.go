@@ -224,6 +224,9 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 		}
 		out.Repos = append(out.Repos, item)
 	}
+	if strings.TrimSpace(s.cfg.WebhookSecret) == "" {
+		out.WebhookURL = ""
+	}
 	return out, nil
 }
 

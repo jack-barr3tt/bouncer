@@ -1,3 +1,5 @@
+name: bouncer
+
 services:
   postgres:
     image: postgres:17
@@ -15,9 +17,6 @@ services:
     command: ["chown", "-R", "10001:10001", "/mnt"]
     volumes:
       - rustfs0:/mnt/rustfs0
-      - rustfs1:/mnt/rustfs1
-      - rustfs2:/mnt/rustfs2
-      - rustfs3:/mnt/rustfs3
     restart: "no"
 
   rustfs:
@@ -26,7 +25,7 @@ services:
       rustfs-perms:
         condition: service_completed_successfully
     environment:
-      RUSTFS_VOLUMES: /data/rustfs{0...3}
+      RUSTFS_VOLUMES: /data/rustfs0
       RUSTFS_ADDRESS: 0.0.0.0:9000
       RUSTFS_CONSOLE_ENABLE: "false"
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
@@ -34,9 +33,6 @@ services:
       RUSTFS_OBS_LOGGER_LEVEL: error
     volumes:
       - rustfs0:/data/rustfs0
-      - rustfs1:/data/rustfs1
-      - rustfs2:/data/rustfs2
-      - rustfs3:/data/rustfs3
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
       interval: 5s
@@ -96,6 +92,3 @@ volumes:
   bouncer-db:
   workspace:
   rustfs0:
-  rustfs1:
-  rustfs2:
-  rustfs3:

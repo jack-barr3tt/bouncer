@@ -24,7 +24,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-`deploy/docker-compose.yml` starts a reconciler from the Bouncer image. That container mounts the Docker socket and this directory at its host path, reads the stack shipped in the image, and starts Postgres, RustFS, the builder, and Bouncer. The public server does not get the socket.
+`deploy/docker-compose.yml` starts a reconciler from the Bouncer image. That container mounts the Docker socket and this directory at its host path, reads the stack shipped in the image, and starts Postgres, RustFS, the builder, and Bouncer. The public server does not get the socket. The Compose project name is `bouncer`.
 
 A compose file that still lists those services itself is rewritten when that server starts. The site keeps serving. From `deploy/`, run `docker compose up -d` again, then commit `deploy/docker-compose.yml`. Set every `required` entry from `deploy/env.yaml` in `deploy/.env` before that second start.
 
@@ -33,6 +33,12 @@ Open the public URL and sign in with that account. The first start copies a buil
 Compose publishes `PORT` from `deploy/.env` on `127.0.0.1`. The default is 8080. Change `PORT` when that port is taken, and point your proxy at the port you chose. The images are `ghcr.io/jack-barr3tt/bouncer` and `ghcr.io/jack-barr3tt/bouncer-builder`. `IMAGE_TAG` selects the tag for both. It starts as `latest` so the first start can pull the reconciler, and the reconciler then pins a version. `SITE_PATH` is the site directory mounted into the server. The builder is not published on a port.
 
 The reconciler checks for a newer published version. When that version needs env values that are still blank, it leaves the pin where it is. An admin sees the missing keys on the homepage and on the admin page. After those values are set, the next check moves the pin and starts that version. An admin can turn this off under Settings on the admin page. The site stays on its current version until it is turned back on.
+
+## Upgrading from 0.6
+
+0.6 replaced the site compose file with a reconciler. The Compose project name is `bouncer`. RustFS uses one volume, so a single disk can start it. `DEPLOY_WEBHOOK_SECRET` can be empty; an empty value turns hooks off, and `DEPLOY_TOKEN` still accepts deploy requests. `@jack-barr3tt/bouncer-client` uses `new Bouncer(slug)`.
+
+A host stuck on 0.6, where RustFS never became healthy, does not finish the upgrade on its own. From `deploy/`, run `docker compose pull` and `docker compose up -d`. That starts the new reconciler, which applies this stack. Volumes created under the `deploy` project name are left in place.
 
 ## Add an app
 
@@ -91,7 +97,7 @@ DEPLOY_WEBHOOK_SECRET=choose-a-long-secret
 BUILDER_TOKEN=choose-another-long-secret
 ```
 
-`BUILDER_TOKEN` is shared with the builder container. It is not a public secret.
+`BUILDER_TOKEN` is shared with the builder container. It is not a public secret. Leave `DEPLOY_WEBHOOK_SECRET` empty to keep hooks off. Set it when a forge will call the hook. `DEPLOY_TOKEN` still accepts deploy requests.
 
 In GitHub or Forgejo, add a webhook for push events to `https://apps.example.com/api/hooks/git`, using that webhook secret. Bouncer fetches the commit, builds the apps whose files changed, and publishes `apps.yaml` and each new `dist`. The homepage reads `GET /api/apps` on the next request. A failed build leaves the previous files in place.
 

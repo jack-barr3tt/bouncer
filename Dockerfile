@@ -30,7 +30,7 @@ RUN cd server && go mod download
 COPY server server
 RUN cd server && CGO_ENABLED=0 go build -o /bouncer ./cmd/bouncer
 
-FROM alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS builder
+FROM node AS builder
 COPY --from=server /bouncer /usr/local/bin/bouncer
 ENV WORKSPACE=/workspace
 EXPOSE 8081
