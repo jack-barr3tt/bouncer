@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import AccessCodesSection from '../components/admin/AccessCodesSection.tsx'
 import AppList from '../components/home/AppList.tsx'
 import HomeHeader from '../components/home/HomeHeader.tsx'
+import UpdateNotice from '../components/UpdateNotice.tsx'
 import { useApps, useSession } from '../hooks/useSession.ts'
 import { useToastError } from '../toasts.tsx'
 
@@ -29,6 +30,7 @@ function Home() {
     <>
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
         <HomeHeader />
+        <UpdateNotice />
         {sessionPending || appsPending ? null : <AppList />}
         {shareable.length > 0 ? <AccessCodesSection apps={codeChoices} heading="Share access" /> : null}
       </main>

@@ -147,6 +147,8 @@ function printResult(dir: string, sitePath: string, port: string, ci: CiSystem, 
   console.log('  cp .env.example .env')
   console.log('  # set AUTH_BOOTSTRAP_USERNAME and AUTH_BOOTSTRAP_PASSWORD')
   console.log('  docker compose up -d')
+  console.log('That starts a reconciler, which pins a Bouncer version and starts Postgres, storage, the builder, and Bouncer. An admin can turn later updates off from the admin page.')
+  console.log('Set every required value from deploy/env.yaml in deploy/.env. A newer version that needs one which is still blank stays unapplied, and admins see the missing keys in Bouncer.')
   console.log('')
   console.log(`Bouncer listens on 127.0.0.1:${port}. Point TLS and your hostname at that port.`)
   console.log('Change PORT in deploy/.env if that port is taken.')

@@ -10,14 +10,18 @@ const watches = {
     path.startsWith('create/') ||
     path.startsWith('templates/') ||
     path.startsWith('scaffold/') ||
-    path === 'deploy/docker-compose.yml',
+    path === 'deploy/docker-compose.yml' ||
+    path === 'deploy/env.yaml',
   image: (path) =>
     path === 'Dockerfile' ||
     path === '.dockerignore' ||
     path.startsWith('server/') ||
     path.startsWith('hub/') ||
     path.startsWith('scaffold/') ||
-    path === 'scripts/docker-entrypoint.sh',
+    path === 'scripts/docker-entrypoint.sh' ||
+    path === 'deploy/docker-compose.yml' ||
+    path === 'deploy/stack.yml' ||
+    path === 'deploy/env.yaml',
   builder: (path) => path === 'Dockerfile' || path === '.dockerignore' || path.startsWith('server/'),
 }
 

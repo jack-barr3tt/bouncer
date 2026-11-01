@@ -5,13 +5,16 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/jack-barr3tt/bouncer/db"
 	"github.com/jack-barr3tt/bouncer/internal/api"
 	"github.com/jack-barr3tt/bouncer/internal/deploy"
 	"github.com/jack-barr3tt/bouncer/internal/envfile"
+	"github.com/jack-barr3tt/bouncer/internal/stack"
 	"github.com/jack-barr3tt/bouncer/internal/storage"
 	"github.com/jack-barr3tt/bouncer/internal/store"
 )
@@ -28,6 +31,24 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "repo" {
 		if err := runRepo(os.Args[2:], os.Stdin, os.Stdout); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "adopt" {
+		msg, err := stack.Adopt(stack.Options{})
+		if err != nil {
+			log.Fatal(err)
+		}
+		if msg != "" {
+			log.Print(msg)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "reconcile" {
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+		if err := stack.Reconcile(ctx, stack.Options{}, nil); err != nil {
 			log.Fatal(err)
 		}
 		return

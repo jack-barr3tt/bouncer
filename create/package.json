@@ -9,8 +9,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "tsc && node --test write.test.mjs",
-    "prepublishOnly": "npm run build && node vendor.mjs"
+    "vendor": "node --experimental-strip-types vendor.ts",
+    "test": "tsc -p tsconfig.test.json && tsc && node --experimental-strip-types --test test/write.test.ts",
+    "prepublishOnly": "npm run build && npm run vendor"
   },
   "files": [
     "dist",
