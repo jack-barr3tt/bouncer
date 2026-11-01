@@ -11,13 +11,13 @@ func TestLatestVersionIgnoresNonReleases(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
-			w.Write([]byte(`{"token":"t"}`))
+			_, _ = w.Write([]byte(`{"token":"t"}`))
 		case "/v2/jack-barr3tt/bouncer/tags/list":
 			if r.Header.Get("Authorization") != "Bearer t" {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
-			w.Write([]byte(`{"tags":["latest","0.2.0","0.10.0","0.9.1","dev"]}`))
+			_, _ = w.Write([]byte(`{"tags":["latest","0.2.0","0.10.0","0.9.1","dev"]}`))
 		default:
 			http.NotFound(w, r)
 		}

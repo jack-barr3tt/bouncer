@@ -55,7 +55,7 @@ func (c *registryCatalog) Example(ctx context.Context, version string) (string, 
 	}
 	defer func() { _ = c.run(context.Background(), "docker", "rm", "-f", name) }()
 	dest := filepath.Join(os.TempDir(), name+".env")
-	defer os.Remove(dest)
+	defer func() { _ = os.Remove(dest) }()
 	if err := c.run(ctx, "docker", "cp", name+":/opt/bouncer/env.yaml", dest); err != nil {
 		return "", err
 	}
@@ -134,7 +134,7 @@ func getJSON(ctx context.Context, client *http.Client, raw string, header http.H
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if err != nil {
 		return nil, err
