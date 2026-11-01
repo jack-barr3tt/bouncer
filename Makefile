@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help postgres init server hub builder migrate dev stop-tmux down stop \
+.PHONY: help postgres rustfs init server hub builder migrate dev stop-tmux down stop \
 	schema generate generate-api generate-hub \
 	check lint lint-server lint-js \
 	test-server test-client test-create test-scripts test-hub lint-hub test-hello
@@ -16,9 +16,10 @@ OAPI_CODEGEN := github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 
 help:
 	@printf '%s\n' \
-		'dev          Start Postgres and a tmux session for the server and hub' \
+		'dev          Start Postgres, RustFS, and a tmux session for the server and hub' \
 		'stop         Stop that tmux session and Compose' \
 		'postgres     Start Postgres on port 5436' \
+		'rustfs       Start RustFS on port 9000' \
 		'init         Write Hello into a site that has no apps.yaml' \
 		'server       Run this checkout (reads .env from the repository root)' \
 		'hub          Homepage dev server, proxying to port 8080' \
@@ -42,6 +43,9 @@ help:
 postgres:
 	cd $(ROOT) && $(COMPOSE) up -d --wait postgres
 
+rustfs:
+	cd $(ROOT) && $(COMPOSE) up -d --wait rustfs
+
 init:
 	cd $(ROOT) && set -a && [ -f .env ] && . ./.env; set +a; \
 		SITE_ROOT="$${SITE_ROOT:-scaffold}" SCAFFOLD="$(ROOT)/scaffold" "$(ROOT)/scripts/docker-entrypoint.sh" init; \
@@ -51,7 +55,7 @@ init:
 			npm ci --prefix "$$site/apps/hello" && npm run build --prefix "$$site/apps/hello"; \
 		fi
 
-dev: postgres init
+dev: postgres rustfs init
 	@test -f $(ROOT)/.env || { echo "copy .env.example to .env"; exit 1; }
 	@command -v tmux >/dev/null 2>&1 || { echo "tmux is required. Install it (e.g. brew install tmux)."; exit 1; }
 	@if tmux has-session -t $(TMUX_SESSION) 2>/dev/null; then \
@@ -138,4 +142,10 @@ lint-hub:
 	cd $(ROOT)/hub && npm ci && npm run lint
 
 test-hello:
-	cd $(ROOT)/scaffold/apps/hello && npm ci && npm run lint && npm run build
+	cd $(ROOT)/client && npm ci && npm run build
+	cd $(ROOT)/scaffold/apps/hello && npm ci \
+		&& rm -rf node_modules/@jack-barr3tt/bouncer-client \
+		&& mkdir -p node_modules/@jack-barr3tt/bouncer-client \
+		&& cp $(ROOT)/client/package.json node_modules/@jack-barr3tt/bouncer-client/package.json \
+		&& cp -R $(ROOT)/client/dist node_modules/@jack-barr3tt/bouncer-client/dist \
+		&& npm run lint && npm run build

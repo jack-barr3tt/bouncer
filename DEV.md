@@ -4,11 +4,13 @@ This file is for working on this repository. Deploying a site that uses the publ
 
 Run `make` from the repository root to list targets. Copy `.env.example` to `.env` there before starting. The server reads that file from the root, and leaves a variable that is already set. A relative `SITE_ROOT` is resolved from that same directory.
 
-`make dev` starts Postgres and a tmux session named `bouncer`. The `server` window runs this checkout on `http://127.0.0.1:8080`. The `hub` window is the homepage dev server, and it proxies `/api` and `/apps` to that port. Open the URL Vite prints. If the session already exists, `make dev` attaches to it.
+`make dev` starts Postgres, RustFS, and a tmux session named `bouncer`. The `server` window runs this checkout on `http://127.0.0.1:8080`. The `hub` window is the homepage dev server, and it proxies `/api` and `/apps` to that port. Open the URL Vite prints. If the session already exists, `make dev` attaches to it.
 
 In the session, switch windows with `Ctrl-b` then `n` or `p`, or `Ctrl-b` then `0` or `1` (`server`, `hub`). `Ctrl-b` then `d` detaches and leaves both running. `make stop-tmux` kills the session. `make down` stops Compose. `make stop` does both. `make server` and `make hub` run those processes without tmux.
 
 Postgres listens on `127.0.0.1:5436`. The user, password, and database are `bouncer`. The first start of an empty database creates the admin from `AUTH_BOOTSTRAP_USERNAME` and `AUTH_BOOTSTRAP_PASSWORD`. Sign in with those, then change the password. The server applies migrations as it starts. `make migrate` applies them on their own.
+
+RustFS listens on `127.0.0.1:9000`. Set `STORAGE_ENDPOINT` to that URL to store each signed-in person's JSON document for each app. Leave it empty and those routes answer that storage is not configured. `STORAGE_MAX_BYTES` is the maximum size of any one document for the whole deployment. Unset, it is 1 MiB.
 
 `SITE_ROOT` in the example is `scaffold`, so the apps are `scaffold/apps` and `apps.yaml` is the sample in this repository. Point it at another directory when you want to serve a different site. `make dev` writes `apps.yaml` and the Hello sample into a site that does not already have `apps.yaml`, and builds Hello when `dist` is missing. A site that already has `apps.yaml` is left alone. The container entrypoint copies the same sample, including the Hello build from the image.
 

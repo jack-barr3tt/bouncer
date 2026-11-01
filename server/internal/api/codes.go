@@ -157,6 +157,7 @@ func (s *Server) DeleteAccessCode(c fiber.Ctx, id Id) error {
 	for _, tempID := range temps {
 		s.broker.Publish("temp:"+tempID.String(), accessEvent("session_ended", nil))
 	}
+	s.forgetTempStorage(c.Context(), temps...)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -219,6 +220,7 @@ func (s *Server) RevokeTemporaryAccount(c fiber.Ctx, id Id) error {
 		return s.internal(c, err)
 	}
 	s.broker.Publish("temp:"+id.String(), accessEvent("session_ended", nil))
+	s.forgetTempStorage(c.Context(), id)
 	return c.SendStatus(fiber.StatusNoContent)
 }
 

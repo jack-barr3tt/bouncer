@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { accessDestination } from './src/leave.ts'
+import { accessDestination } from '../src/leave.ts'
 
 test('a revoked app returns to the hub', () => {
   const dest = accessDestination('access', { apps: ['other'], hub: 'https://example.com' }, 'notes')

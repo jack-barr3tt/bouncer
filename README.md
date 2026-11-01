@@ -58,15 +58,19 @@ npm install @jack-barr3tt/bouncer-client
 ```
 
 ```ts
-import { currentIdentity, watchAccess } from '@jack-barr3tt/bouncer-client'
+import { Bouncer } from '@jack-barr3tt/bouncer-client'
 
-const who = await currentIdentity()
+const bouncer = new Bouncer('your-slug')
+const who = await bouncer.identity()
 // { kind: 'user', username } or { kind: 'temporary', nickname }
 
-watchAccess('your-slug')
+bouncer.watch()
+
+await bouncer.storage.setItem('theme', 'dark')
+const theme = await bouncer.storage.getItem('theme')
 ```
 
-`currentIdentity()` returns the signed-in username or nickname, or `null` when nobody is signed in. `watchAccess(slug)` sends the browser to the homepage when access to that app is removed, and to the login page when the session ends. Both are optional.
+`identity()` returns the signed-in username or nickname, or `null` when nobody is signed in. `watch()` sends the browser to the homepage when access to this app is removed, and to the login page when the session ends. `storage` is that person's localStorage for the app: `getItem`, `setItem`, `removeItem`, `clear`, `key`, and `length`, each returning a promise. Values are strings. The library loads and saves the backing document, including when two browsers write at once. A signed-out call to `getItem` returns `null`. A document over the deployment's `STORAGE_MAX_BYTES` limit, which defaults to 1 MiB, rejects with `QuotaExceededError`.
 
 While you develop, proxy `/api` to Bouncer on port 8080. The Vite dev server is not behind the gate.
 

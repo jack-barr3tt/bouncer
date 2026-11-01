@@ -9,6 +9,42 @@ services:
       - bouncer-db:/var/lib/postgresql/data
     restart: unless-stopped
 
+  rustfs-perms:
+    image: alpine:3.22
+    user: "0"
+    command: ["chown", "-R", "10001:10001", "/mnt"]
+    volumes:
+      - rustfs0:/mnt/rustfs0
+      - rustfs1:/mnt/rustfs1
+      - rustfs2:/mnt/rustfs2
+      - rustfs3:/mnt/rustfs3
+    restart: "no"
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    depends_on:
+      rustfs-perms:
+        condition: service_completed_successfully
+    environment:
+      RUSTFS_VOLUMES: /data/rustfs{0...3}
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ENABLE: "false"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_OBS_LOGGER_LEVEL: error
+    volumes:
+      - rustfs0:/data/rustfs0
+      - rustfs1:/data/rustfs1
+      - rustfs2:/data/rustfs2
+      - rustfs3:/data/rustfs3
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
   builder:
     image: ${REGISTRY}/bouncer-builder:${IMAGE_TAG}
     environment:
@@ -21,8 +57,12 @@ services:
   bouncer:
     image: ${REGISTRY}/bouncer:${IMAGE_TAG}
     depends_on:
-      - postgres
-      - builder
+      postgres:
+        condition: service_started
+      builder:
+        condition: service_started
+      rustfs:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${PORT:-8080}:8080"
     env_file:
@@ -40,6 +80,12 @@ services:
       BUILDER_URL: http://builder:8081
       BUILDER_TOKEN: ${BUILDER_TOKEN:-}
       WORKSPACE: /workspace
+      STORAGE_ENDPOINT: http://rustfs:9000
+      STORAGE_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-bouncer}
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      STORAGE_MAX_BYTES: ${STORAGE_MAX_BYTES:-1048576}
     volumes:
       - ${SITE_PATH}:/site
       - workspace:/workspace
@@ -49,3 +95,7 @@ services:
 volumes:
   bouncer-db:
   workspace:
+  rustfs0:
+  rustfs1:
+  rustfs2:
+  rustfs3:

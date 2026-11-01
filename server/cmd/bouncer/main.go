@@ -12,6 +12,7 @@ import (
 	"github.com/jack-barr3tt/bouncer/internal/api"
 	"github.com/jack-barr3tt/bouncer/internal/deploy"
 	"github.com/jack-barr3tt/bouncer/internal/envfile"
+	"github.com/jack-barr3tt/bouncer/internal/storage"
 	"github.com/jack-barr3tt/bouncer/internal/store"
 )
 
@@ -91,15 +92,29 @@ func main() {
 	}
 	go ships.Poll(context.Background())
 
+	maxBytes, err := storage.ParseMaxBytes(os.Getenv("STORAGE_MAX_BYTES"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	objects, err := storage.FromEnv(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if objects != nil {
+		log.Printf("app storage enabled")
+	}
+
 	app, err := api.NewApp(api.Config{
-		Pool:           pool,
-		SiteRoot:       root,
-		HubUpstream:    hubUpstream(),
-		PublicBaseURL:  base,
-		Routing:        os.Getenv("ROUTING"),
-		TrustedProxies: splitList(os.Getenv("TRUSTED_PROXIES")),
-		CookieSecure:   os.Getenv("COOKIE_SECURE"),
-		Deploy:         ships,
+		Pool:            pool,
+		SiteRoot:        root,
+		HubUpstream:     hubUpstream(),
+		PublicBaseURL:   base,
+		Routing:         os.Getenv("ROUTING"),
+		TrustedProxies:  splitList(os.Getenv("TRUSTED_PROXIES")),
+		CookieSecure:    os.Getenv("COOKIE_SECURE"),
+		Deploy:          ships,
+		Storage:         objects,
+		StorageMaxBytes: maxBytes,
 	})
 	if err != nil {
 		log.Fatal(err)

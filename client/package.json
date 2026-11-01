@@ -2,11 +2,11 @@
   "name": "@jack-barr3tt/bouncer-client",
   "version": "0.4.1",
   "type": "module",
-  "description": "Identity and access hooks for an app served by Bouncer.",
+  "description": "Identity, access, and per-app storage for an app served by Bouncer.",
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "test": "node --experimental-strip-types --test leave.test.ts",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
     "prepublishOnly": "npm run build"
   },
   "exports": {

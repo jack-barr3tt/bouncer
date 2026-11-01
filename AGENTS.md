@@ -9,7 +9,7 @@ How to set up and run a site is in [README.md](README.md). How to cut a release 
 ```
 server/          Go server. Module github.com/jack-barr3tt/bouncer
 hub/             Homepage, served at /
-client/          @jack-barr3tt/bouncer-client. Identity and live revoke
+client/          @jack-barr3tt/bouncer-client. Identity, storage, and live revoke
 scaffold/        Files written into an empty site on startup
 templates/       CI pipelines and site scripts a site copies into place
 create/          @jack-barr3tt/create-bouncer. Writes CI files and the Hello sample into a site
@@ -39,7 +39,7 @@ People sign in on the hub with a username and password. An admin can create acco
 
 An access code is an invitation owned by the account that created it. The join URL is `/code/<code>`. Opening it asks for a nickname and creates a temporary account tied to that browser fingerprint and IP. The same fingerprint resumes the same temporary account. A temporary account that can open only one private app is sent straight to it from the homepage. Public apps do not count toward that. Revoking the code stops new signups. An admin can revoke any code. The owner can revoke only their own. Revoking a temporary account signs that person out.
 
-The session cookie is `bouncer_session`. Apps learn the signed-in name from `@jack-barr3tt/bouncer-client` (`currentIdentity()`). They leave when access is revoked only if they call `watchAccess(slug)`.
+The session cookie is `bouncer_session`. An app creates `new Bouncer(slug)` from `@jack-barr3tt/bouncer-client`. `identity()` is the signed-in name. `watch()` leaves when access to that app is revoked. `storage` is localStorage for that person and app: `getItem`, `setItem`, `removeItem`, `clear`, `key`, and `length`, each returning a promise. `STORAGE_MAX_BYTES` caps every document and defaults to 1 MiB.
 
 ## CI templates
 
@@ -51,7 +51,7 @@ Bouncer fetches the site repository from `GIT_REMOTE`, or from the site director
 
 ## Local run
 
-How to run this repository is in [DEV.md](DEV.md). From the repository root, `make dev` starts Postgres and a tmux session for this checkout. Compose can also start the published server image, which does not include changes in this checkout.
+How to run this repository is in [DEV.md](DEV.md). From the repository root, `make dev` starts Postgres, RustFS, and a tmux session for this checkout. Compose can also start the published server image, which does not include changes in this checkout.
 
 ## Checks
 

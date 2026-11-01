@@ -6,5 +6,5 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["leave.test.ts", "src"]
+  "include": ["test", "src"]
 }
