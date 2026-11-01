@@ -1,6 +1,6 @@
 {
   "name": "@jack-barr3tt/bouncer-client",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "type": "module",
   "description": "Identity, access, and per-app storage for an app served by Bouncer.",
   "license": "MIT",
