@@ -64,6 +64,7 @@ steps:
         echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
         if grep -qx image .release/publish; then
           docker build \
+            --build-arg VERSION="$VERSION" \
             -t "$REGISTRY/bouncer:$VERSION" \
             -t "$REGISTRY/bouncer:latest" \
             .
@@ -108,7 +109,7 @@ steps:
           echo "client unchanged since the previous tag; skipping"
         fi
         if grep -qx create .release/publish; then
-          (cd create && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && node vendor.mjs && npm stage publish --access public && npm stage list --json)
+          (cd create && npm ci && npm version "$VERSION" --no-git-tag-version --allow-same-version && npm run build && npm run vendor && npm stage publish --access public && npm stage list --json)
         else
           echo "create-bouncer unchanged since the previous tag; skipping"
         fi

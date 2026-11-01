@@ -1,101 +1,15 @@
+# bouncer-reconcile
+# The deploy directory is mounted at its host path. Compose gives volume
+# sources to the Docker daemon, which reads the host filesystem.
 services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: bouncer
-      POSTGRES_PASSWORD: bouncer
-      POSTGRES_DB: bouncer
-    volumes:
-      - bouncer-db:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  rustfs-perms:
-    image: alpine:3.22
-    user: "0"
-    command: ["chown", "-R", "10001:10001", "/mnt"]
-    volumes:
-      - rustfs0:/mnt/rustfs0
-      - rustfs1:/mnt/rustfs1
-      - rustfs2:/mnt/rustfs2
-      - rustfs3:/mnt/rustfs3
-    restart: "no"
-
-  rustfs:
-    image: rustfs/rustfs:latest
-    depends_on:
-      rustfs-perms:
-        condition: service_completed_successfully
-    environment:
-      RUSTFS_VOLUMES: /data/rustfs{0...3}
-      RUSTFS_ADDRESS: 0.0.0.0:9000
-      RUSTFS_CONSOLE_ENABLE: "false"
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
-      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
-      RUSTFS_OBS_LOGGER_LEVEL: error
-    volumes:
-      - rustfs0:/data/rustfs0
-      - rustfs1:/data/rustfs1
-      - rustfs2:/data/rustfs2
-      - rustfs3:/data/rustfs3
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-    restart: unless-stopped
-
-  builder:
-    image: ${REGISTRY}/bouncer-builder:${IMAGE_TAG}
-    environment:
-      BUILDER_TOKEN: ${BUILDER_TOKEN:-}
-      WORKSPACE: /workspace
-    volumes:
-      - workspace:/workspace
-    restart: unless-stopped
-
-  bouncer:
+  reconcile:
     image: ${REGISTRY}/bouncer:${IMAGE_TAG}
-    depends_on:
-      postgres:
-        condition: service_started
-      builder:
-        condition: service_started
-      rustfs:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:${PORT:-8080}:8080"
+    entrypoint: ["bouncer", "reconcile"]
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://bouncer:bouncer@postgres:5432/bouncer?sslmode=disable
-      SITE_ROOT: /site
-      HUB_UPSTREAM: http://127.0.0.1:3000
-      LISTEN_ADDR: ":8080"
-      GIT_REMOTE: ${GIT_REMOTE:-}
-      GIT_BRANCH: ${GIT_BRANCH:-main}
-      DEPLOY_WEBHOOK_SECRET: ${DEPLOY_WEBHOOK_SECRET:-}
-      DEPLOY_TOKEN: ${DEPLOY_TOKEN:-}
-      DEPLOY_POLL_INTERVAL: ${DEPLOY_POLL_INTERVAL:-}
-      BUILDER_URL: http://builder:8081
-      BUILDER_TOKEN: ${BUILDER_TOKEN:-}
-      WORKSPACE: /workspace
-      STORAGE_ENDPOINT: http://rustfs:9000
-      STORAGE_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
-      STORAGE_SECRET_KEY: ${RUSTFS_SECRET_KEY}
-      STORAGE_BUCKET: ${STORAGE_BUCKET:-bouncer}
-      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
-      STORAGE_MAX_BYTES: ${STORAGE_MAX_BYTES:-1048576}
+      DEPLOY_DIR: ${SITE_PATH}/deploy
     volumes:
-      - ${SITE_PATH}:/site
-      - workspace:/workspace
-      - ${GIT_SSH_KEY_FILE:-./git-key}:/run/bouncer/git-key:ro
+      - ${SITE_PATH}/deploy:${SITE_PATH}/deploy
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
-
-volumes:
-  bouncer-db:
-  workspace:
-  rustfs0:
-  rustfs1:
-  rustfs2:
-  rustfs3:

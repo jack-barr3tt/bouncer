@@ -318,6 +318,12 @@ type SessionKind string
 // SessionRole defines model for Session.Role.
 type SessionRole string
 
+// Settings defines model for Settings.
+type Settings struct {
+	// AutoUpdate When true, the reconciler moves to a newer published Bouncer version. When false, the site stays on its current version.
+	AutoUpdate bool `json:"autoUpdate"`
+}
+
 // TemporaryAccount defines model for TemporaryAccount.
 type TemporaryAccount struct {
 	CreatedAt time.Time          `json:"createdAt"`
@@ -331,6 +337,16 @@ type TemporaryAccount struct {
 // TemporaryAccountList defines model for TemporaryAccountList.
 type TemporaryAccountList struct {
 	Accounts []TemporaryAccount `json:"accounts"`
+}
+
+// UpdateNotice defines model for UpdateNotice.
+type UpdateNotice struct {
+	// Keys Env keys the operator has to set before that version is applied.
+	Keys    *[]string `json:"keys,omitempty"`
+	Pending bool      `json:"pending"`
+
+	// Version The version that was not applied.
+	Version *string `json:"version,omitempty"`
 }
 
 // UpdateUserRequest defines model for UpdateUserRequest.
@@ -415,6 +431,9 @@ type GitHookJSONRequestBody = GitHookJSONBody
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
+type UpdateSettingsJSONRequestBody = Settings
+
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUserRequest
 
@@ -496,8 +515,17 @@ type ServerInterface interface {
 	// (GET /api/session)
 	GetSession(c fiber.Ctx) error
 
+	// (GET /api/settings)
+	GetSettings(c fiber.Ctx) error
+
+	// (PUT /api/settings)
+	UpdateSettings(c fiber.Ctx) error
+
 	// (POST /api/temporary-accounts/{id}/revoke)
 	RevokeTemporaryAccount(c fiber.Ctx, id Id) error
+
+	// (GET /api/update)
+	GetUpdate(c fiber.Ctx) error
 
 	// (GET /api/users)
 	ListUsers(c fiber.Ctx) error
@@ -1045,6 +1073,42 @@ func (siw *ServerInterfaceWrapper) GetSession(c fiber.Ctx) error {
 	return handler(c)
 }
 
+// GetSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSettings(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.GetSettings(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// UpdateSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSettings(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.UpdateSettings(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // RevokeTemporaryAccount operation middleware
 func (siw *ServerInterfaceWrapper) RevokeTemporaryAccount(c fiber.Ctx) error {
 
@@ -1061,6 +1125,24 @@ func (siw *ServerInterfaceWrapper) RevokeTemporaryAccount(c fiber.Ctx) error {
 
 	handler := func(c fiber.Ctx) error {
 		return siw.Handler.RevokeTemporaryAccount(c, id)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetUpdate operation middleware
+func (siw *ServerInterfaceWrapper) GetUpdate(c fiber.Ctx) error {
+
+	handler := func(c fiber.Ctx) error {
+		return siw.Handler.GetUpdate(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -1222,6 +1304,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Post(options.BaseURL+"/api/temporary-accounts/:id/revoke", wrapper.RevokeTemporaryAccount)
 
 	router.Post(options.BaseURL+"/api/hooks/git", wrapper.GitHook)
+
+	router.Get(options.BaseURL+"/api/settings", wrapper.GetSettings)
+
+	router.Put(options.BaseURL+"/api/settings", wrapper.UpdateSettings)
+
+	router.Get(options.BaseURL+"/api/update", wrapper.GetUpdate)
 
 	router.Get(options.BaseURL+"/api/deploy", wrapper.GetDeploy)
 

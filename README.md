@@ -16,7 +16,7 @@ npx @jack-barr3tt/create-bouncer
 
 `.` writes into the repository you are in. The command asks which CI to use (GitHub Actions, Woodpecker, or Forgejo), the public URL, the absolute path where this repository will be checked out on the server, and the host port. That path is saved as `SITE_PATH`. The port is saved as `PORT` and defaults to 8080. It writes the pipelines, the build and deploy scripts, `deploy/`, and the Hello sample at `apps/hello` with its `apps.yaml` entry.
 
-The server gets a clone of this repository. `deploy/` stays inside it and holds `docker-compose.yml`, `.env.example`, and an empty `git-key`. Clone the repository on the server at the path you entered. From `deploy/`:
+The server gets a clone of this repository. `deploy/` stays inside it and holds `docker-compose.yml`, `.env.example`, and an empty `git-key`. `.env.example` is generated from `deploy/env.yaml`. Clone the repository on the server at the path you entered. From `deploy/`:
 
 ```bash
 cp .env.example .env
@@ -24,9 +24,15 @@ cp .env.example .env
 docker compose up -d
 ```
 
+`deploy/docker-compose.yml` starts a reconciler from the Bouncer image. That container mounts the Docker socket and this directory at its host path, reads the stack shipped in the image, and starts Postgres, RustFS, the builder, and Bouncer. The public server does not get the socket.
+
+A compose file that still lists those services itself is rewritten when that server starts. The site keeps serving. From `deploy/`, run `docker compose up -d` again, then commit `deploy/docker-compose.yml`. Set every `required` entry from `deploy/env.yaml` in `deploy/.env` before that second start.
+
 Open the public URL and sign in with that account. The first start copies a built Hello into `apps/hello/dist` when that build is missing, so the sample is on the homepage immediately. Change the bootstrap password before anyone else can reach the server.
 
-Compose publishes `PORT` from `deploy/.env` on `127.0.0.1`. The default is 8080. Change `PORT` when that port is taken, and point your proxy at the port you chose. The images are `ghcr.io/jack-barr3tt/bouncer` and `ghcr.io/jack-barr3tt/bouncer-builder`. `IMAGE_TAG` selects the tag for both, and defaults to `latest`. `SITE_PATH` is the site directory mounted into the server. The builder is not published on a port.
+Compose publishes `PORT` from `deploy/.env` on `127.0.0.1`. The default is 8080. Change `PORT` when that port is taken, and point your proxy at the port you chose. The images are `ghcr.io/jack-barr3tt/bouncer` and `ghcr.io/jack-barr3tt/bouncer-builder`. `IMAGE_TAG` selects the tag for both. It starts as `latest` so the first start can pull the reconciler, and the reconciler then pins a version. `SITE_PATH` is the site directory mounted into the server. The builder is not published on a port.
+
+The reconciler checks for a newer published version. When that version needs env values that are still blank, it leaves the pin where it is. An admin sees the missing keys on the homepage and on the admin page. After those values are set, the next check moves the pin and starts that version. An admin can turn this off under Settings on the admin page. The site stays on its current version until it is turned back on.
 
 ## Add an app
 
@@ -162,4 +168,4 @@ The admin page shows the latest deploy and can publish the branch tip. The webho
 
 ## Set the files up by hand
 
-Copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml` with `deploy/.env.example`. Then copy that example to `deploy/.env`, set the public URL, site path, host port, and bootstrap account, and set `COOKIE_SECURE=true` when the public URL is HTTPS. Create `deploy/git-key` before starting Compose so that mount is a file. Run Compose from `deploy/` so that file supplies the image and the site path.
+Copy `templates/github/`, `templates/woodpecker/`, or `templates/forgejo/` into the site, copy `templates/site/scripts/` to `scripts/`, and copy `deploy/docker-compose.yml`. The variables in `deploy/env.yaml` are the env file: `value` is the default, and `required` is left blank for you to set. The compose file starts the reconciler. The image applies the stack. Create `deploy/git-key` before starting Compose so that mount is a file. Run Compose from `deploy/` so that file supplies the image and the site path.

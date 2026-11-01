@@ -293,6 +293,55 @@ paths:
           $ref: "#/components/responses/Error"
         "404":
           $ref: "#/components/responses/Error"
+  /api/settings:
+    get:
+      operationId: getSettings
+      responses:
+        "200":
+          description: Site settings an admin can change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: updateSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Settings"
+      responses:
+        "200":
+          description: The settings that were saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /api/update:
+    get:
+      operationId: getUpdate
+      responses:
+        "200":
+          description: A newer Bouncer version that is waiting for configuration, if there is one.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateNotice"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
   /api/deploy:
     get:
       operationId: getDeploy
@@ -619,6 +668,27 @@ components:
       properties:
         revision:
           type: string
+    Settings:
+      type: object
+      required: [autoUpdate]
+      properties:
+        autoUpdate:
+          type: boolean
+          description: When true, the reconciler moves to a newer published Bouncer version. When false, the site stays on its current version.
+    UpdateNotice:
+      type: object
+      required: [pending]
+      properties:
+        pending:
+          type: boolean
+        version:
+          type: string
+          description: The version that was not applied.
+        keys:
+          type: array
+          items:
+            type: string
+          description: Env keys the operator has to set before that version is applied.
     Session:
       type: object
       required: [kind, apps, expiresAt, hub]

@@ -34,6 +34,8 @@ if [ -e "$SITE_ROOT/apps/hello/package.json" ] && [ ! -e "$SITE_ROOT/apps/hello/
   cp -a "$SCAFFOLD/apps/hello/dist/." "$SITE_ROOT/apps/hello/dist/"
 fi
 
+/usr/local/bin/bouncer adopt
+
 if [ "${1:-}" = "init" ]; then
   exit 0
 fi

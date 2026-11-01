@@ -26,6 +26,8 @@ cp .env.example .env
 docker compose up -d
 ```
 
+The compose file starts a reconciler from the Bouncer image. That container mounts the Docker socket and applies the stack shipped in the image. It pins `IMAGE_TAG` to a published version. A newer version that needs env values which are still blank is left unapplied, and an admin sees the missing keys in Bouncer. The pin moves once those values are set. An admin can turn automatic updates off from the admin page. A compose file that still lists those services itself is rewritten when that server starts. Run `docker compose up -d` once more and commit `deploy/docker-compose.yml`.
+
 How to run the server, add apps, and publish from git is in the [Bouncer README](https://github.com/jack-barr3tt/bouncer#readme).
 
 ## License

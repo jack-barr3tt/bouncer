@@ -4,11 +4,12 @@ import { existsSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } fro
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { writeSite } from './dist/write.js'
+import { writeSite, type CiSystem } from '../src/write.ts'
 
-const assetsRoot = join(import.meta.dirname, '..')
+const assetsRoot = join(import.meta.dirname, '..', '..')
+const cli = join(import.meta.dirname, '..', 'dist', 'index.js')
 
-function options(dir, ci) {
+function options(dir: string, ci: CiSystem) {
   return {
     dir,
     ci,
@@ -35,6 +36,8 @@ test('github writes pipelines, scripts, and compose', () => {
   assert.match(env, /COOKIE_SECURE=true/)
   assert.match(env, /GIT_REMOTE=/)
   assert.match(env, /BUILDER_TOKEN=/)
+  assert.match(env, /RUSTFS_ACCESS_KEY=/)
+  assert.match(readFileSync(join(dir, 'deploy', 'docker-compose.yml'), 'utf8'), /bouncer-reconcile/)
   assert.ok(wrote.includes('apps.yaml'))
   assert.ok(wrote.includes('AGENTS.md'))
   assert.ok(wrote.includes(join('apps', 'AGENTS.md')))
@@ -62,18 +65,7 @@ test('forgejo and the cli use the same layout', () => {
   const dir = mkdtempSync(join(tmpdir(), 'bouncer-site-'))
   const result = spawnSync(
     process.execPath,
-    [
-      join(import.meta.dirname, 'dist', 'index.js'),
-      dir,
-      '--ci',
-      'forgejo',
-      '--public-url',
-      'http://127.0.0.1:8080',
-      '--site-path',
-      '/srv/apps',
-      '--port',
-      '9090',
-    ],
+    [cli, dir, '--ci', 'forgejo', '--public-url', 'http://127.0.0.1:8080', '--site-path', '/srv/apps', '--port', '9090'],
     { encoding: 'utf8' },
   )
   assert.equal(result.status, 0, result.stderr)
@@ -81,6 +73,8 @@ test('forgejo and the cli use the same layout', () => {
   assert.match(result.stdout, /cd \/srv\/apps\/deploy/)
   assert.match(result.stdout, /127\.0\.0\.1:9090/)
   assert.match(result.stdout, /cp \.env\.example \.env/)
+  assert.match(result.stdout, /starts a reconciler/)
+  assert.match(result.stdout, /required value/)
   assert.match(result.stdout, /http:\/\/127\.0\.0\.1:8080\/api\/hooks\/git/)
   assert.match(result.stdout, /DEPLOY_WEBHOOK_SECRET in deploy\/\.env/)
   assert.match(result.stdout, /Forgejo repository secrets/)
@@ -96,7 +90,7 @@ test('forgejo and the cli use the same layout', () => {
 test('the cli runs when invoked through a symlink', () => {
   const dir = mkdtempSync(join(tmpdir(), 'bouncer-site-'))
   const link = join(dir, 'create-bouncer')
-  symlinkSync(join(import.meta.dirname, 'dist', 'index.js'), link)
+  symlinkSync(cli, link)
   const result = spawnSync(process.execPath, [link, '--help'], { encoding: 'utf8' })
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /create-bouncer/)

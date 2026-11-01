@@ -6,8 +6,9 @@ test('each artifact watches its own inputs', () => {
   assert.deepEqual(artifactsForDiff(['client/src/index.ts']), ['client'])
   assert.deepEqual(artifactsForDiff(['create/src/index.ts']), ['create'])
   assert.deepEqual(artifactsForDiff(['templates/github/pr.yaml']), ['create'])
-  assert.deepEqual(artifactsForDiff(['deploy/docker-compose.yml']), ['create'])
-  assert.deepEqual(artifactsForDiff(['deploy/.env.example']), [])
+  assert.deepEqual(artifactsForDiff(['deploy/docker-compose.yml']), ['create', 'image'])
+  assert.deepEqual(artifactsForDiff(['deploy/stack.yml']), ['image'])
+  assert.deepEqual(artifactsForDiff(['deploy/env.yaml']), ['create', 'image'])
   assert.deepEqual(artifactsForDiff(['scaffold/apps.yaml']), ['create', 'image'])
   assert.deepEqual(artifactsForDiff(['server/cmd/bouncer/main.go']), ['image', 'builder'])
   assert.deepEqual(artifactsForDiff(['hub/src/main.tsx']), ['image'])
@@ -19,7 +20,7 @@ test('each artifact watches its own inputs', () => {
 
 test('a mixed diff publishes every affected artifact in a stable order', () => {
   assert.deepEqual(
-    artifactsForDiff(['server/go.mod', 'client/package.json', 'hub/package.json', 'create/vendor.mjs']),
+    artifactsForDiff(['server/go.mod', 'client/package.json', 'hub/package.json', 'create/vendor.ts']),
     releaseArtifacts,
   )
 })

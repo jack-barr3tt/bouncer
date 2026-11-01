@@ -29,7 +29,7 @@ const ciFiles: Record<CiSystem, [string, string][]> = {
   ],
 }
 
-const gitignoreLines = ['node_modules/', 'dist/', 'deploy/.env', 'deploy/git-key']
+const gitignoreLines = ['node_modules/', 'dist/', 'deploy/.env', 'deploy/git-key', 'deploy/update.json']
 
 export function writeSite(options: SetupOptions): { wrote: string[]; skipped: string[] } {
   const wrote: string[] = []
@@ -115,28 +115,60 @@ function writeEnv(options: SetupOptions, wrote: string[], skipped: string[]): vo
     return
   }
   const secure = options.publicUrl.startsWith('https://')
-  const body = [
-    'REGISTRY=ghcr.io/jack-barr3tt',
-    'IMAGE_TAG=latest',
-    `PORT=${options.port}`,
-    `SITE_PATH=${options.sitePath}`,
-    `PUBLIC_BASE_URL=${options.publicUrl}`,
-    'AUTH_BOOTSTRAP_USERNAME=',
-    'AUTH_BOOTSTRAP_PASSWORD=',
-    'TRUSTED_PROXIES=127.0.0.1',
-    `COOKIE_SECURE=${secure ? 'true' : 'false'}`,
-    'GIT_REMOTE=',
-    'GIT_BRANCH=main',
-    'GIT_SSH_KEY_FILE=./git-key',
-    'DEPLOY_WEBHOOK_SECRET=',
-    'DEPLOY_TOKEN=',
-    'DEPLOY_POLL_INTERVAL=',
-    'BUILDER_TOKEN=',
-    '',
-  ].join('\n')
+  const fields = parseEnvSpec(readFileSync(join(options.assetsRoot, 'deploy', 'env.yaml'), 'utf8'))
+  setField(fields, 'PORT', options.port)
+  setField(fields, 'SITE_PATH', options.sitePath)
+  setField(fields, 'PUBLIC_BASE_URL', options.publicUrl)
+  setField(fields, 'COOKIE_SECURE', secure ? 'true' : 'false')
   mkdirSync(dirname(dest), { recursive: true })
-  writeFileSync(dest, body)
+  writeFileSync(dest, renderEnv(fields))
   wrote.push(to)
+}
+
+type EnvField = { name: string; value: string; required: boolean }
+
+function parseEnvSpec(text: string): EnvField[] {
+  const fields: EnvField[] = []
+  let current: EnvField | null = null
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (line === '' || line.startsWith('#')) continue
+    const item = line.match(/^- name:\s*([A-Za-z0-9_]+)\s*$/)
+    if (item) {
+      if (current) fields.push(current)
+      current = { name: item[1], value: '', required: false }
+      continue
+    }
+    if (!current) throw new Error(`env spec: ${line}`)
+    const value = line.match(/^value:\s*(.*)$/)
+    if (value) {
+      current.value = unquote(value[1].trim())
+      continue
+    }
+    if (line === 'required: true') {
+      current.required = true
+      continue
+    }
+    throw new Error(`env spec: ${line}`)
+  }
+  if (current) fields.push(current)
+  return fields
+}
+
+function unquote(value: string): string {
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) return value.slice(1, -1)
+  return value
+}
+
+function setField(fields: EnvField[], name: string, value: string): void {
+  const field = fields.find((item) => item.name === name)
+  if (!field) throw new Error(`env spec: missing ${name}`)
+  field.value = value
+  field.required = false
+}
+
+function renderEnv(fields: EnvField[]): string {
+  return `${fields.map((field) => `${field.name}=${field.value}`).join('\n')}\n`
 }
 
 function writeKey(options: SetupOptions, wrote: string[], skipped: string[]): void {

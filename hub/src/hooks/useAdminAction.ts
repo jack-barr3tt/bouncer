@@ -1,7 +1,7 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { reportError } from '../toasts.tsx'
 
-const adminPaths = ['/api/users', '/api/access-codes', '/api/deploy', '/api/apps']
+const adminPaths = ['/api/users', '/api/access-codes', '/api/deploy', '/api/apps', '/api/update', '/api/settings']
 
 function isAdminQuery(key: unknown) {
   return typeof key === 'string' && adminPaths.some((path) => key === path || key.startsWith(`${path}/`))
